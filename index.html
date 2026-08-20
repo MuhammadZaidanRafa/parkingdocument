@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Parking System</title>
+
+    <meta name="description"
+          content="Sistem Parking berbasis web untuk mengelola kendaraan, booking, transaksi, dan area parkir.">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 20px 8%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+
+        .hero {
+            min-height: calc(100vh - 70px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .hero-content {
+            max-width: 700px;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 30px;
+            line-height: 1.7;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 25px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 18px 5%;
+            }
+
+            nav a {
+                margin-left: 10px;
+                font-size: 14px;
+            }
+
+            .hero h1 {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="logo">🚗 Parking</div>
+
+    <nav>
+        <a href="index.php">Home</a>
+        <a href="login.php">Login</a>
+        <a href="register.php">Register</a>
+    </nav>
+</header>
+
+<main class="hero">
+    <div class="hero-content">
+
+        <h1>Sistem Parking</h1>
+
+        <p>
+            Kelola parkir dengan lebih mudah, cepat, dan terorganisir.
+            Booking tempat parkir, kendaraan, transaksi,
+            dan informasi parkir dalam satu sistem.
+        </p>
+
+        <div class="buttons">
+            <a href="login_pengguna.php"
+               class="btn btn-primary">
+                Mulai Parking
+            </a>
+
+            <a href="register.php"
+               class="btn btn-secondary">
+                Daftar Akun
+            </a>
+        </div>
+
+    </div>
+</main>
+
+<footer>
+    &copy; 2026 Parking System. All Rights Reserved.
+</footer>
+
+</body>
+</html>
