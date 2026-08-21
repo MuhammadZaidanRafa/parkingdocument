@@ -1,0 +1,1010 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Laporan Sistem Parking</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            line-height: 1.7;
+        }
+
+        /* SIDEBAR */
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 270px;
+            height: 100vh;
+            background: #0f172a;
+            color: white;
+            padding: 25px 18px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo .icon {
+            font-size: 42px;
+        }
+
+        .logo h2 {
+            margin-top: 5px;
+            font-size: 22px;
+        }
+
+        .logo p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .menu-title {
+            font-size: 11px;
+            color: #64748b;
+            margin: 20px 10px 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar a {
+            display: block;
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 11px 13px;
+            margin: 4px 0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+
+        .sidebar a:hover {
+            background: #1e293b;
+            color: white;
+            transform: translateX(3px);
+        }
+
+        /* MAIN */
+
+        .main {
+            margin-left: 270px;
+            padding: 35px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        /* HERO */
+
+        .hero {
+            background: linear-gradient(135deg, #2563eb, #0f172a);
+            color: white;
+            border-radius: 18px;
+            padding: 55px 45px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 40px rgba(15, 23, 42, 0.15);
+        }
+
+        .hero small {
+            color: #bfdbfe;
+            font-weight: bold;
+            letter-spacing: 2px;
+        }
+
+        .hero h1 {
+            font-size: 42px;
+            margin: 10px 0;
+        }
+
+        .hero p {
+            max-width: 750px;
+            color: #dbeafe;
+        }
+
+        .badge {
+            display: inline-block;
+            margin-top: 20px;
+            background: rgba(255,255,255,0.12);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 14px;
+            border-radius: 50px;
+            font-size: 13px;
+        }
+
+        /* CARD */
+
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 20px rgba(15, 23, 42, 0.06);
+        }
+
+        .section h2 {
+            font-size: 24px;
+            color: #0f172a;
+            margin-bottom: 18px;
+            border-left: 5px solid #2563eb;
+            padding-left: 12px;
+        }
+
+        .section h3 {
+            margin-top: 20px;
+            margin-bottom: 8px;
+            color: #1e40af;
+        }
+
+        .section p {
+            margin-bottom: 12px;
+        }
+
+        ul,
+        ol {
+            margin-left: 25px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        /* INFO GRID */
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .info-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 18px;
+            border-radius: 10px;
+        }
+
+        .info-card span {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .info-card strong {
+            color: #0f172a;
+        }
+
+        /* TABLE */
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            border: 1px solid #e2e8f0;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #eff6ff;
+            color: #1e40af;
+        }
+
+        tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        /* CODE */
+
+        pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        code {
+            font-family: Consolas, monospace;
+        }
+
+        /* FLOW */
+
+        .flow {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 25px 0;
+        }
+
+        .flow-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 14px 18px;
+            border-radius: 10px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .arrow {
+            font-size: 22px;
+            color: #64748b;
+        }
+
+        /* FOOTER */
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 800px) {
+
+            .sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                max-height: none;
+            }
+
+            .sidebar a {
+                display: inline-block;
+                margin: 3px;
+            }
+
+            .menu-title {
+                margin-top: 10px;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 15px;
+            }
+
+            .hero {
+                padding: 35px 25px;
+            }
+
+            .hero h1 {
+                font-size: 30px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 22px;
+            }
+
+            .flow {
+                flex-direction: column;
+            }
+
+            .arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        /* PRINT */
+
+        @media print {
+
+            .sidebar {
+                display: none;
+            }
+
+            .main {
+                margin-left: 0;
+                padding: 0;
+            }
+
+            body {
+                background: white;
+            }
+
+            .section,
+            .hero {
+                box-shadow: none;
+                break-inside: avoid;
+            }
+
+            .hero {
+                color: black;
+                background: white;
+                border: 2px solid #ddd;
+            }
+
+            .hero p,
+            .hero small {
+                color: black;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ================= SIDEBAR ================= -->
+
+<aside class="sidebar">
+
+    <div class="logo">
+        <div class="icon">🚗</div>
+        <h2>Parking System</h2>
+        <p>Laporan Project</p>
+    </div>
+
+    <div class="menu-title">Laporan</div>
+
+    <a href="#identitas">📋 Identitas Project</a>
+    <a href="#deskripsi">📖 Deskripsi</a>
+    <a href="#tujuan">🎯 Tujuan</a>
+    <a href="#teknologi">💻 Teknologi</a>
+    <a href="#struktur">📁 Struktur Folder</a>
+    <a href="#database">🗄️ Database</a>
+    <a href="#login">🔐 Sistem Login</a>
+    <a href="#alur">🔄 Alur Sistem</a>
+    <a href="#booking">🅿️ Booking</a>
+    <a href="#transaksi">💳 Transaksi</a>
+    <a href="#laporan">📊 Laporan</a>
+    <a href="#keamanan">🛡️ Keamanan</a>
+    <a href="#lokal">💻 Server Lokal</a>
+    <a href="#deployment">🌐 Deployment</a>
+    <a href="#kelebihan">✅ Kelebihan</a>
+    <a href="#kekurangan">⚠️ Kekurangan</a>
+    <a href="#pengembangan">🚀 Pengembangan</a>
+    <a href="#kesimpulan">📌 Kesimpulan</a>
+
+</aside>
+
+
+<!-- ================= MAIN ================= -->
+
+<main class="main">
+
+<div class="container">
+
+    <!-- HERO -->
+
+    <section class="hero">
+
+        <small>LAPORAN PROJECT</small>
+
+        <h1>🚗 Sistem Parking</h1>
+
+        <p>
+            Aplikasi web untuk membantu pengelolaan sistem parkir
+            secara digital dengan menggunakan PHP, MySQL, HTML,
+            CSS, dan JavaScript.
+        </p>
+
+        <div class="badge">
+            PHP + MySQL + XAMPP + InfinityFree
+        </div>
+
+    </section>
+
+
+    <!-- IDENTITAS -->
+
+    <section class="section" id="identitas">
+
+        <h2>1. Identitas Project</h2>
+
+        <div class="info-grid">
+
+            <div class="info-card">
+                <span>Nama Project</span>
+                <strong>Sistem Parking</strong>
+            </div>
+
+            <div class="info-card">
+                <span>Jenis Project</span>
+                <strong>Aplikasi Pengelolaan Parkir Berbasis Web</strong>
+            </div>
+
+            <div class="info-card">
+                <span>Backend</span>
+                <strong>PHP</strong>
+            </div>
+
+            <div class="info-card">
+                <span>Database</span>
+                <strong>MySQL</strong>
+            </div>
+
+            <div class="info-card">
+                <span>Server Lokal</span>
+                <strong>XAMPP</strong>
+            </div>
+
+            <div class="info-card">
+                <span>Hosting</span>
+                <strong>InfinityFree</strong>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- DESKRIPSI -->
+
+    <section class="section" id="deskripsi">
+
+        <h2>2. Deskripsi Project</h2>
+
+        <p>
+            Sistem Parking adalah aplikasi berbasis web yang digunakan
+            untuk membantu proses pengelolaan parkir secara digital.
+        </p>
+
+        <p>
+            Sistem ini menyediakan fitur pengelolaan pengguna,
+            kendaraan, area parkir, booking, tarif, transaksi,
+            log aktivitas, dan laporan.
+        </p>
+
+        <p>
+            Aplikasi memiliki beberapa jenis pengguna yaitu
+            <strong>Admin, Owner, Petugas, dan Pengguna/Pelanggan</strong>.
+            Setiap pengguna memiliki hak akses yang berbeda sesuai
+            dengan role masing-masing.
+        </p>
+
+    </section>
+
+
+    <!-- TUJUAN -->
+
+    <section class="section" id="tujuan">
+
+        <h2>3. Tujuan Project</h2>
+
+        <ol>
+            <li>Membantu pengelolaan data kendaraan secara digital.</li>
+            <li>Memudahkan pengguna melakukan booking tempat parkir.</li>
+            <li>Menampilkan informasi ketersediaan area parkir.</li>
+            <li>Membantu petugas dalam proses operasional parkir.</li>
+            <li>Memudahkan admin mengelola data sistem.</li>
+            <li>Membantu owner melihat laporan sistem.</li>
+            <li>Menyimpan data transaksi secara terstruktur.</li>
+            <li>Meningkatkan efisiensi pengelolaan parkir.</li>
+        </ol>
+
+    </section>
+
+
+    <!-- TEKNOLOGI -->
+
+    <section class="section" id="teknologi">
+
+        <h2>4. Teknologi yang Digunakan</h2>
+
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Teknologi</th>
+                        <th>Fungsi</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    <tr>
+                        <td>PHP</td>
+                        <td>Backend dan pemrosesan sistem</td>
+                    </tr>
+
+                    <tr>
+                        <td>MySQL</td>
+                        <td>Penyimpanan database</td>
+                    </tr>
+
+                    <tr>
+                        <td>HTML5</td>
+                        <td>Struktur halaman website</td>
+                    </tr>
+
+                    <tr>
+                        <td>CSS3</td>
+                        <td>Tampilan dan desain website</td>
+                    </tr>
+
+                    <tr>
+                        <td>JavaScript</td>
+                        <td>Interaksi halaman</td>
+                    </tr>
+
+                    <tr>
+                        <td>Apache</td>
+                        <td>Web server</td>
+                    </tr>
+
+                    <tr>
+                        <td>XAMPP</td>
+                        <td>Server pengembangan lokal</td>
+                    </tr>
+
+                    <tr>
+                        <td>InfinityFree</td>
+                        <td>Hosting website</td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    <!-- STRUKTUR -->
+
+    <section class="section" id="struktur">
+
+        <h2>5. Struktur Folder Project</h2>
+
+<pre><code>parking/
+│
+├── admin/
+│   ├── area.php
+│   ├── kendaraan.php
+│   ├── log.php
+│   ├── struk.php
+│   ├── tarif.php
+│   └── user.php
+│
+├── owner/
+│   ├── add_admin.php
+│   └── laporan.php
+│
+├── pengguna/
+│   ├── cek_area.php
+│   ├── kendaraan_saya.php
+│   ├── konfirmasi_sudah_ditempat.php
+│   ├── pesan_tempat.php
+│   ├── profil.php
+│   ├── proses_pesan.php
+│   ├── kuitansi.php
+│   ├── riwayat.php
+│   └── struk.php
+│
+├── db.php
+├── dashboard.php
+├── dashboard_admin.php
+├── dashboard_owner.php
+├── dashboard_pengguna.php
+├── dashboard_petugas.php
+├── index.php
+├── login.php
+├── login_pengguna.php
+├── logout.php
+├── register.php
+├── transaksi.php
+├── kendaraan.php
+├── struk.php
+├── user.php
+├── index.html
+└── README.md</code></pre>
+
+    </section>
+
+
+    <!-- DATABASE -->
+
+    <section class="section" id="database">
+
+        <h2>6. Database</h2>
+
+        <p>
+            Database yang digunakan dalam Sistem Parking adalah:
+        </p>
+
+<pre><code>if0_42701946_parking</code></pre>
+
+        <p>
+            Beberapa tabel utama yang digunakan:
+        </p>
+
+        <ul>
+            <li>users</li>
+            <li>kendaraan</li>
+            <li>transaksi</li>
+            <li>booking</li>
+            <li>area</li>
+            <li>tarif</li>
+            <li>log</li>
+        </ul>
+
+    </section>
+
+
+    <!-- LOGIN -->
+
+    <section class="section" id="login">
+
+        <h2>7. Sistem Login dan Hak Akses</h2>
+
+        <p>
+            Sistem menggunakan PHP Session untuk menjaga status login
+            pengguna.
+        </p>
+
+<pre><code>&lt;?php
+
+session_start();
+
+if (!isset($_SESSION['id_user'])) {
+    header("Location: login.php");
+    exit;
+}</code></pre>
+
+        <p>
+            Sistem juga membatasi akses berdasarkan role.
+        </p>
+
+<pre><code>if ($_SESSION['role'] != "admin") {
+    die("Akses ditolak!");
+}</code></pre>
+
+    </section>
+
+
+    <!-- ALUR -->
+
+    <section class="section" id="alur">
+
+        <h2>8. Alur Sistem</h2>
+
+        <div class="flow">
+
+            <div class="flow-box">
+                🚗 Website<br>Parking
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="flow-box">
+                👨‍💼 Admin
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="flow-box">
+                👑 Owner
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="flow-box">
+                👤 Pengguna
+            </div>
+
+            <div class="arrow">→</div>
+
+            <div class="flow-box">
+                🗄️ MySQL
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- BOOKING -->
+
+    <section class="section" id="booking">
+
+        <h2>9. Proses Booking Parkir</h2>
+
+        <ol>
+            <li>Pengguna login ke sistem.</li>
+            <li>Pengguna membuka menu cek area.</li>
+            <li>Sistem menampilkan area parkir.</li>
+            <li>Pengguna memilih kendaraan.</li>
+            <li>Pengguna melakukan pemesanan tempat.</li>
+            <li>Sistem menyimpan data booking.</li>
+            <li>Pengguna melakukan konfirmasi ketika sudah berada di lokasi.</li>
+            <li>Petugas memproses kendaraan.</li>
+            <li>Data transaksi disimpan ke database.</li>
+            <li>Pengguna dapat melihat kuitansi dan riwayat.</li>
+        </ol>
+
+    </section>
+
+
+    <!-- TRANSAKSI -->
+
+    <section class="section" id="transaksi">
+
+        <h2>10. Transaksi Parkir</h2>
+
+        <p>
+            Transaksi digunakan untuk mencatat aktivitas kendaraan
+            selama menggunakan tempat parkir.
+        </p>
+
+        <h3>Data Transaksi</h3>
+
+        <ul>
+            <li>Kendaraan</li>
+            <li>Pengguna</li>
+            <li>Area parkir</li>
+            <li>Waktu masuk</li>
+            <li>Waktu keluar</li>
+            <li>Tarif</li>
+            <li>Total pembayaran</li>
+            <li>Status transaksi</li>
+        </ul>
+
+    </section>
+
+
+    <!-- LAPORAN -->
+
+    <section class="section" id="laporan">
+
+        <h2>11. Laporan Sistem</h2>
+
+        <p>
+            Fitur laporan digunakan oleh owner untuk melihat
+            informasi mengenai aktivitas sistem parkir.
+        </p>
+
+        <h3>Informasi yang dapat ditampilkan</h3>
+
+        <ul>
+            <li>Data transaksi.</li>
+            <li>Aktivitas parkir.</li>
+            <li>Pendapatan.</li>
+            <li>Jumlah kendaraan.</li>
+            <li>Data booking.</li>
+            <li>Aktivitas pengguna.</li>
+        </ul>
+
+    </section>
+
+
+    <!-- KEAMANAN -->
+
+    <section class="section" id="keamanan">
+
+        <h2>12. Keamanan Sistem</h2>
+
+        <ul>
+            <li>Menggunakan session untuk autentikasi pengguna.</li>
+            <li>Menggunakan <code>password_hash()</code> untuk password.</li>
+            <li>Menggunakan <code>password_verify()</code> saat login.</li>
+            <li>Membatasi halaman berdasarkan role.</li>
+            <li>Melakukan validasi input pengguna.</li>
+            <li>Menggunakan prepared statement.</li>
+            <li>Tidak membagikan password database.</li>
+            <li>Tidak menampilkan error database pada production.</li>
+        </ul>
+
+    </section>
+
+
+    <!-- LOKAL -->
+
+    <section class="section" id="lokal">
+
+        <h2>13. Menjalankan Sistem Secara Lokal</h2>
+
+        <ol>
+            <li>Jalankan Apache pada XAMPP.</li>
+            <li>Jalankan MySQL pada XAMPP.</li>
+            <li>Letakkan project pada folder:</li>
+        </ol>
+
+<pre><code>C:\xampp\htdocs\parking</code></pre>
+
+        <ol start="4">
+            <li>Import database melalui phpMyAdmin.</li>
+            <li>Sesuaikan konfigurasi database pada <code>db.php</code>.</li>
+            <li>Buka browser.</li>
+            <li>Akses alamat:</li>
+        </ol>
+
+<pre><code>http://localhost/parking/</code></pre>
+
+    </section>
+
+
+    <!-- DEPLOYMENT -->
+
+    <section class="section" id="deployment">
+
+        <h2>14. Deployment ke InfinityFree</h2>
+
+        <ol>
+            <li>Membuat akun InfinityFree.</li>
+            <li>Membuat domain atau subdomain.</li>
+            <li>Membuat database MySQL.</li>
+            <li>Membuka phpMyAdmin.</li>
+            <li>Import database project.</li>
+            <li>Upload file project ke folder <code>htdocs</code>.</li>
+            <li>Mengubah konfigurasi database pada <code>db.php</code>.</li>
+            <li>Memastikan seluruh file telah ter-upload.</li>
+            <li>Membuka domain website.</li>
+        </ol>
+
+        <h3>Konfigurasi Database Production</h3>
+
+<pre><code>Host     : sql313.infinityfree.com
+Username : if0_42701946
+Database : if0_42701946_parking
+Port     : 3306</code></pre>
+
+        <p>
+            Password database tidak boleh ditampilkan pada laporan
+            publik maupun repository GitHub.
+        </p>
+
+    </section>
+
+
+    <!-- KELEBIHAN -->
+
+    <section class="section" id="kelebihan">
+
+        <h2>15. Kelebihan Sistem</h2>
+
+        <ul>
+            <li>Pengelolaan data lebih terstruktur.</li>
+            <li>Memudahkan proses booking.</li>
+            <li>Memudahkan pengguna mengetahui area parkir.</li>
+            <li>Memiliki pembagian hak akses.</li>
+            <li>Data tersimpan dalam database.</li>
+            <li>Memiliki fitur transaksi.</li>
+            <li>Memiliki fitur laporan.</li>
+            <li>Dapat digunakan secara lokal maupun online.</li>
+            <li>Dapat dikembangkan dengan fitur tambahan.</li>
+        </ul>
+
+    </section>
+
+
+    <!-- KEKURANGAN -->
+
+    <section class="section" id="kekurangan">
+
+        <h2>16. Kekurangan Sistem</h2>
+
+        <ul>
+            <li>Pembayaran online belum sepenuhnya terintegrasi.</li>
+            <li>Belum menggunakan sensor parkir secara langsung.</li>
+            <li>Notifikasi masih dapat dikembangkan.</li>
+            <li>Belum tersedia aplikasi mobile khusus.</li>
+            <li>Optimasi production masih dapat ditingkatkan.</li>
+        </ul>
+
+    </section>
+
+
+    <!-- PENGEMBANGAN -->
+
+    <section class="section" id="pengembangan">
+
+        <h2>17. Pengembangan Selanjutnya</h2>
+
+        <ul>
+            <li>QR Code untuk tiket parkir.</li>
+            <li>QR Code untuk booking.</li>
+            <li>Pembayaran online.</li>
+            <li>Notifikasi WhatsApp.</li>
+            <li>Dashboard statistik.</li>
+            <li>Sensor slot parkir.</li>
+            <li>Google Maps untuk lokasi parkir.</li>
+            <li>Export laporan ke PDF atau Excel.</li>
+            <li>Sistem membership.</li>
+            <li>Aplikasi Android.</li>
+            <li>Monitoring parkir secara real-time.</li>
+        </ul>
+
+    </section>
+
+
+    <!-- KESIMPULAN -->
+
+    <section class="section" id="kesimpulan">
+
+        <h2>18. Kesimpulan</h2>
+
+        <p>
+            Sistem Parking merupakan aplikasi berbasis web yang
+            dirancang untuk membantu proses pengelolaan tempat parkir
+            secara digital.
+        </p>
+
+        <p>
+            Dengan adanya pembagian hak akses
+            <strong>Admin, Owner, Petugas, dan Pengguna</strong>,
+            setiap pengguna dapat menjalankan fungsi sesuai dengan
+            kebutuhan dan hak akses masing-masing.
+        </p>
+
+        <p>
+            Sistem dapat membantu mengelola data kendaraan,
+            area parkir, booking, tarif, transaksi, pengguna,
+            serta laporan secara lebih terstruktur.
+        </p>
+
+        <p>
+            Dengan pengembangan fitur tambahan seperti pembayaran
+            online, QR Code, notifikasi, dan monitoring slot secara
+            real-time, Sistem Parking dapat dikembangkan menjadi
+            aplikasi pengelolaan parkir yang lebih lengkap dan modern.
+        </p>
+
+    </section>
+
+
+    <!-- FOOTER -->
+
+    <footer>
+
+        <strong>🚗 SISTEM PARKING</strong>
+
+        <br>
+
+        Laporan Project Sistem Parking Berbasis Web
+
+        <br>
+
+        PHP • MySQL • HTML5 • CSS3 • JavaScript
+
+    </footer>
+
+</div>
+
+</main>
+
+</body>
+</html>
