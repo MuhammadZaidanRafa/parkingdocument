@@ -1,142 +1,125 @@
-LAPORAN SISTEM PARKING BERBASIS WEB
+# 🚗 SISTEM PARKING BERBASIS WEB
 
-1. Identitas Project
+Aplikasi pengelolaan parkir berbasis web yang dirancang untuk membantu proses pengelolaan kendaraan, area parkir, booking, transaksi, tarif, pengguna, dan laporan secara digital.
 
-Nama Project: Sistem Parking
-Jenis Project: Aplikasi Pengelolaan Parkir Berbasis Web
-Bahasa Pemrograman: PHP
-Database: MySQL
-Server Lokal: XAMPP
-Hosting: InfinityFree
-**Link Project:**https://parkingrafa.freedev.app/?i=2
-Link Canva: https://www.canva.com/design/DAHQLNu2wRM/riwvKSD-XP3-ayNR7PuOCg/edit
+---
 
-2. Latar Belakang
+## 📌 Informasi Project
 
-Perkembangan teknologi informasi memberikan banyak kemudahan dalam pengelolaan berbagai aktivitas, termasuk pengelolaan tempat parkir. Sistem parkir yang masih dilakukan secara manual dapat menyebabkan berbagai masalah, seperti pencatatan kendaraan yang kurang terorganisir, kesulitan dalam mengetahui ketersediaan tempat parkir, serta proses pembuatan laporan yang membutuhkan waktu.
+| Informasi              | Detail                                                               |
+| ---------------------- | -------------------------------------------------------------------- |
+| **Nama Project**       | Sistem Parking                                                       |
+| **Jenis Project**      | Aplikasi Pengelolaan Parkir Berbasis Web                             |
+| **Bahasa Pemrograman** | PHP                                                                  |
+| **Database**           | MySQL                                                                |
+| **Frontend**           | HTML5, CSS3, JavaScript                                              |
+| **Web Server**         | Apache                                                               |
+| **Server Lokal**       | XAMPP                                                                |
+| **Hosting**            | InfinityFree                                                         |
+| **Link Project**       | https://parkingrafa.freedev.app/?i=2                                 |
+| **Link Canva**         | https://www.canva.com/design/DAHQLNu2wRM/riwvKSD-XP3-ayNR7PuOCg/edit |
 
-Oleh karena itu, dibuat sebuah Sistem Parking berbasis web yang dapat membantu mengelola data pengguna, kendaraan, area parkir, tarif, booking, transaksi, dan laporan secara digital.
+---
+
+## 📖 Tentang Project
+
+Perkembangan teknologi informasi memberikan banyak kemudahan dalam pengelolaan berbagai aktivitas, termasuk pengelolaan tempat parkir.
+
+Sistem parkir yang masih dilakukan secara manual dapat menyebabkan berbagai masalah, seperti pencatatan kendaraan yang kurang terorganisir, kesulitan mengetahui ketersediaan tempat parkir, serta proses pembuatan laporan yang membutuhkan waktu.
+
+Oleh karena itu, dibuat **Sistem Parking berbasis web** yang dapat membantu mengelola:
+
+* Data pengguna
+* Data kendaraan
+* Area parkir
+* Tarif parkir
+* Booking
+* Transaksi
+* Laporan
+* Log aktivitas
 
 Sistem ini diharapkan dapat membuat proses pengelolaan parkir menjadi lebih cepat, terstruktur, dan mudah digunakan.
 
-3. Tujuan Project
+---
 
-Sistem Parking dibuat dengan beberapa tujuan, yaitu:
+## 🎯 Tujuan Project
 
-Membantu pengelolaan data kendaraan secara digital.
+Sistem Parking dibuat dengan beberapa tujuan:
 
-Memudahkan pengguna dalam melakukan booking tempat parkir.
+1. Membantu pengelolaan data kendaraan secara digital.
+2. Memudahkan pengguna melakukan booking tempat parkir.
+3. Menampilkan informasi ketersediaan area parkir.
+4. Membantu petugas mengelola proses parkir.
+5. Memudahkan admin mengelola data sistem.
+6. Membantu owner melihat laporan parkir.
+7. Menyimpan data transaksi secara terstruktur menggunakan MySQL.
+8. Meningkatkan efisiensi pengelolaan tempat parkir.
 
-Menampilkan informasi ketersediaan area parkir.
+---
 
-Membantu petugas dalam mengelola proses parkir.
+## 🛠️ Teknologi yang Digunakan
 
-Memudahkan admin dalam mengelola data sistem.
+| Teknologi        | Fungsi                        |
+| ---------------- | ----------------------------- |
+| **PHP**          | Backend dan pemrosesan sistem |
+| **MySQL**        | Penyimpanan database          |
+| **HTML5**        | Struktur halaman website      |
+| **CSS3**         | Tampilan dan desain website   |
+| **JavaScript**   | Interaksi pada halaman        |
+| **Apache**       | Web server                    |
+| **XAMPP**        | Server pengembangan lokal     |
+| **InfinityFree** | Hosting website               |
 
-Membantu owner melihat laporan parkir.
+---
 
-Menyimpan data transaksi secara terstruktur dalam database MySQL.
+## 👥 Hak Akses Pengguna
 
-Meningkatkan efisiensi pengelolaan tempat parkir.
+Sistem memiliki beberapa jenis pengguna dengan hak akses yang berbeda.
 
-4. Teknologi yang Digunakan
-
-Teknologi
-
-Fungsi
-
-PHP
-
-Backend dan pemrosesan sistem
-
-MySQL
-
-Penyimpanan database
-
-HTML5
-
-Struktur halaman website
-
-CSS3
-
-Tampilan dan desain website
-
-JavaScript
-
-Interaksi pada halaman
-
-Apache
-
-Web server
-
-XAMPP
-
-Server untuk pengembangan lokal
-
-InfinityFree
-
-Hosting website
-
-5. Struktur Sistem
-
-Sistem Parking memiliki beberapa jenis pengguna dengan hak akses yang berbeda.
-
-Admin
+### 🔐 Admin
 
 Admin bertugas mengelola data sistem, seperti:
 
-Area parkir
+* Area parkir
+* Kendaraan
+* Tarif
+* Pengguna
+* Log aktivitas
+* Struk transaksi
 
-Kendaraan
-
-Tarif
-
-Pengguna
-
-Log aktivitas
-
-Struk transaksi
-
-Owner
+### 👑 Owner
 
 Owner dapat:
 
-Melihat laporan
+* Melihat laporan
+* Menambahkan admin
+* Memantau aktivitas sistem
 
-Menambahkan admin
-
-Memantau aktivitas sistem
-
-Petugas
+### 👮 Petugas
 
 Petugas bertugas membantu proses operasional parkir, seperti:
 
-Check-in kendaraan
+* Check-in kendaraan
+* Check-out kendaraan
+* Mengelola transaksi parkir
 
-Check-out kendaraan
-
-Mengelola transaksi parkir
-
-Pengguna/Pelanggan
+### 👤 Pengguna / Pelanggan
 
 Pengguna dapat:
 
-Mengelola kendaraan
+* Mengelola kendaraan
+* Melihat area parkir
+* Melakukan booking
+* Mengonfirmasi kedatangan
+* Melihat riwayat parkir
+* Melihat kuitansi
+* Melihat struk
 
-Melihat area parkir
+---
 
-Melakukan booking
+## 📁 Struktur Folder
 
-Mengonfirmasi kedatangan
-
-Melihat riwayat parkir
-
-Melihat kuitansi
-
-Melihat struk
-
-6. Struktur Folder
-
+```text
 parking/
 │
 ├── admin/
@@ -179,15 +162,21 @@ parking/
 ├── user.php
 ├── index.html
 └── README.md
+```
 
-7. Database
+---
+
+## 🗄️ Database
 
 Database yang digunakan dalam Sistem Parking adalah:
 
+```text
 if0_42701946_parking
+```
 
 Beberapa tabel utama yang digunakan antara lain:
 
+```text
 users
 kendaraan
 transaksi
@@ -195,34 +184,44 @@ booking
 area
 tarif
 log
+```
 
-Database digunakan untuk menyimpan seluruh data yang diperlukan oleh sistem.
+Database digunakan untuk menyimpan seluruh data yang diperlukan oleh sistem parkir.
 
-8. Sistem Login dan Hak Akses
+---
 
-Sistem menggunakan PHP Session untuk menjaga status login pengguna.
+## 🔑 Sistem Login & Hak Akses
 
-Contoh proses pengecekan login:
+Sistem menggunakan **PHP Session** untuk menjaga status login pengguna.
 
+Contoh pengecekan login:
+
+```php
 session_start();
 
 if (!isset($_SESSION['id_user'])) {
     header("Location: login.php");
     exit;
 }
+```
 
-Sistem juga menerapkan pembatasan akses berdasarkan role pengguna.
+Sistem juga menerapkan pembatasan akses berdasarkan role.
 
 Contoh:
 
+```php
 if ($_SESSION['role'] != "admin") {
     die("Akses ditolak!");
 }
+```
 
 Dengan sistem tersebut, halaman tertentu hanya dapat diakses oleh pengguna yang memiliki hak akses sesuai.
 
-9. Alur Sistem
+---
 
+## 🔄 Alur Sistem
+
+```text
                          WEBSITE PARKING
                                │
                 ┌──────────────┼──────────────┐
@@ -241,226 +240,241 @@ Dengan sistem tersebut, halaman tertentu hanya dapat diakses oleh pengguna yang 
                                │
                                ▼
                        DATA SISTEM PARKIR
+```
 
-10. Proses Booking Parkir
+---
 
-Proses booking dilakukan oleh pengguna melalui beberapa tahap:
+## 🅿️ Proses Booking Parkir
 
-Pengguna login ke sistem.
+Proses booking dilakukan melalui beberapa tahap:
 
-Pengguna memilih menu cek area.
+1. Pengguna login ke sistem.
+2. Pengguna memilih menu cek area.
+3. Sistem menampilkan area parkir yang tersedia.
+4. Pengguna memilih kendaraan.
+5. Pengguna melakukan pemesanan tempat.
+6. Sistem menyimpan data booking.
+7. Pengguna melakukan konfirmasi ketika sudah berada di lokasi.
+8. Petugas dapat memproses kendaraan.
+9. Data transaksi disimpan ke database.
+10. Pengguna dapat melihat kuitansi dan riwayat parkir.
 
-Sistem menampilkan area parkir yang tersedia.
+---
 
-Pengguna memilih kendaraan.
-
-Pengguna melakukan pemesanan tempat.
-
-Sistem menyimpan data booking.
-
-Pengguna melakukan konfirmasi ketika sudah berada di lokasi.
-
-Petugas dapat memproses kendaraan.
-
-Data transaksi disimpan ke database.
-
-Pengguna dapat melihat kuitansi dan riwayat parkir.
-
-11. Pengelolaan Tarif
+## 💰 Pengelolaan Tarif
 
 Admin dapat mengatur tarif parkir yang digunakan dalam proses transaksi.
 
-Data tarif dapat digunakan untuk menentukan biaya parkir berdasarkan ketentuan yang diterapkan oleh pengelola.
+Data tarif digunakan untuk menentukan biaya parkir berdasarkan ketentuan yang diterapkan oleh pengelola.
 
-Dengan adanya fitur tarif, perhitungan biaya parkir dapat dilakukan secara lebih terstruktur.
+Dengan adanya fitur tarif, proses perhitungan biaya parkir dapat dilakukan secara lebih terstruktur.
 
-12. Transaksi Parkir
+---
+
+## 💳 Transaksi Parkir
 
 Transaksi digunakan untuk mencatat aktivitas kendaraan selama menggunakan tempat parkir.
 
 Data transaksi dapat mencakup:
 
-Kendaraan
-
-Pengguna
-
-Area parkir
-
-Waktu masuk
-
-Waktu keluar
-
-Tarif
-
-Total pembayaran
-
-Status transaksi
+* Kendaraan
+* Pengguna
+* Area parkir
+* Waktu masuk
+* Waktu keluar
+* Tarif
+* Total pembayaran
+* Status transaksi
 
 Data transaksi kemudian dapat digunakan untuk membuat struk dan laporan.
 
-13. Laporan
+---
+
+## 📊 Laporan
 
 Fitur laporan digunakan oleh owner untuk melihat informasi mengenai aktivitas sistem parkir.
 
 Laporan dapat digunakan untuk mengetahui:
 
-Data transaksi
-
-Aktivitas parkir
-
-Pendapatan
-
-Jumlah kendaraan
-
-Data booking
-
-Aktivitas pengguna
+* Data transaksi
+* Aktivitas parkir
+* Pendapatan
+* Jumlah kendaraan
+* Data booking
+* Aktivitas pengguna
 
 Dengan laporan tersebut, owner dapat memperoleh informasi yang lebih mudah untuk memantau kondisi operasional parkir.
 
-14. Keamanan Sistem
+---
+
+## 🔒 Keamanan Sistem
 
 Beberapa aspek keamanan yang diterapkan dalam sistem antara lain:
 
-Menggunakan session untuk autentikasi pengguna.
+* Menggunakan **PHP Session** untuk autentikasi pengguna.
+* Menggunakan `password_hash()` untuk menyimpan password.
+* Menggunakan `password_verify()` saat proses login.
+* Membatasi halaman berdasarkan role.
+* Melakukan validasi input pengguna.
+* Menggunakan prepared statement untuk query yang menerima input pengguna.
+* Tidak membagikan password database.
+* Tidak menampilkan informasi error database pada production.
 
-Menggunakan password_hash() untuk menyimpan password.
+> **Catatan:** Jangan menyimpan password database, API key, atau informasi rahasia lainnya di dalam README maupun repository publik.
 
-Menggunakan password_verify() saat proses login.
+---
 
-Membatasi halaman berdasarkan role.
+## 💻 Menjalankan Sistem Secara Lokal
 
-Melakukan validasi input pengguna.
+### 1. Jalankan XAMPP
 
-Menggunakan prepared statement untuk query yang menerima input pengguna.
+Aktifkan:
 
-Tidak membagikan password database.
+```text
+Apache
+MySQL
+```
 
-Tidak menampilkan informasi error database pada production.
+### 2. Letakkan Project
 
-15. Menjalankan Sistem Secara Lokal
+Simpan folder project di:
 
-Untuk menjalankan sistem menggunakan XAMPP:
-
-Jalankan Apache.
-
-Jalankan MySQL.
-
-Letakkan folder project pada:
-
+```text
 C:\xampp\htdocs\parking
+```
 
-Pastikan database sudah dibuat dan di-import melalui phpMyAdmin.
+### 3. Siapkan Database
 
-Pastikan konfigurasi db.php sesuai dengan database lokal.
+Buka:
 
-Buka browser.
+```text
+http://localhost/phpmyadmin
+```
 
-Akses:
+Kemudian:
 
+1. Buat database.
+2. Import database project.
+3. Pastikan nama database sesuai dengan konfigurasi pada `db.php`.
+
+### 4. Periksa Konfigurasi Database
+
+Sesuaikan konfigurasi pada:
+
+```text
+db.php
+```
+
+dengan database lokal yang digunakan.
+
+### 5. Jalankan Website
+
+Buka browser dan akses:
+
+```text
 http://localhost/parking/
+```
 
-16. Deployment ke InfinityFree
+---
 
-Setelah aplikasi selesai dikembangkan, sistem dapat di-deploy ke InfinityFree.
+## 🌐 Deployment ke InfinityFree
 
 Tahapan deployment:
 
-Membuat akun InfinityFree.
+1. Membuat akun InfinityFree.
+2. Membuat domain atau subdomain.
+3. Membuat database MySQL.
+4. Membuka phpMyAdmin.
+5. Import database project.
+6. Upload file project ke folder `htdocs`.
+7. Mengubah konfigurasi database pada `db.php`.
+8. Memastikan seluruh file dan folder telah ter-upload.
+9. Membuka domain website.
 
-Membuat domain atau subdomain.
+### Konfigurasi Database Production
 
-Membuat database MySQL.
-
-Membuka phpMyAdmin.
-
-Import database project.
-
-Upload file project ke folder htdocs.
-
-Mengubah konfigurasi database pada db.php.
-
-Memastikan seluruh file dan folder telah ter-upload.
-
-Membuka domain website.
-
-Konfigurasi database production menggunakan:
-
+```text
 Host     : sql313.infinityfree.com
 Username : if0_42701946
 Database : if0_42701946_parking
 Port     : 3306
+```
 
-Password database sebaiknya tidak ditulis di dalam laporan publik atau repository GitHub.
+**Penting:** Password database tidak dicantumkan di README untuk menjaga keamanan akun dan database.
 
-17. Kelebihan Sistem
+---
 
-Sistem Parking memiliki beberapa kelebihan, antara lain:
+## ✅ Kelebihan Sistem
 
-Pengelolaan data lebih terstruktur.
+Sistem Parking memiliki beberapa kelebihan:
 
-Memudahkan proses booking.
+* Pengelolaan data lebih terstruktur.
+* Memudahkan proses booking.
+* Memudahkan pengguna mengetahui area parkir.
+* Memiliki pembagian hak akses.
+* Data tersimpan dalam database.
+* Memiliki fitur transaksi.
+* Memiliki fitur laporan.
+* Dapat digunakan secara lokal maupun online.
+* Dapat dikembangkan dengan fitur tambahan.
 
-Memudahkan pengguna mengetahui area parkir.
+---
 
-Memiliki pembagian hak akses.
+## ⚠️ Kekurangan Sistem
 
-Data tersimpan dalam database.
+Beberapa bagian yang masih dapat dikembangkan:
 
-Memiliki fitur transaksi.
+* Sistem pembayaran online belum sepenuhnya terintegrasi.
+* Belum menggunakan sensor parkir secara langsung.
+* Sistem notifikasi masih dapat dikembangkan.
+* Sistem dapat dikembangkan menjadi aplikasi mobile.
+* Keamanan dan optimasi production masih dapat ditingkatkan.
 
-Memiliki fitur laporan.
+---
 
-Dapat digunakan secara lokal maupun online.
-
-Dapat dikembangkan dengan fitur tambahan.
-
-18. Kekurangan Sistem
-
-Beberapa kekurangan yang masih dapat dikembangkan:
-
-Sistem pembayaran online belum sepenuhnya terintegrasi.
-
-Belum menggunakan sensor parkir secara langsung.
-
-Notifikasi masih dapat dikembangkan.
-
-Sistem dapat dikembangkan menjadi aplikasi mobile.
-
-Keamanan dan optimasi production masih dapat ditingkatkan.
-
-19. Pengembangan Selanjutnya
+## 🚀 Pengembangan Selanjutnya
 
 Sistem Parking dapat dikembangkan dengan fitur:
 
-QR Code untuk tiket parkir.
+* 📱 Aplikasi Android
+* 🔳 QR Code untuk tiket parkir
+* 🎫 QR Code untuk booking
+* 💳 Pembayaran online
+* 📱 Notifikasi WhatsApp
+* 📊 Dashboard statistik
+* 🚗 Sensor slot parkir
+* 📍 Google Maps untuk lokasi parkir
+* 📄 Export laporan ke PDF atau Excel
+* ⭐ Sistem membership
+* 🔴 Monitoring parkir secara real-time
 
-QR Code untuk booking.
+---
 
-Pembayaran online.
+## 📝 Kesimpulan
 
-Notifikasi WhatsApp.
+**Sistem Parking** merupakan aplikasi berbasis web yang dirancang untuk membantu proses pengelolaan tempat parkir secara digital.
 
-Dashboard statistik.
-
-Sensor slot parkir.
-
-Google Maps untuk lokasi parkir.
-
-Export laporan ke PDF atau Excel.
-
-Sistem membership.
-
-Aplikasi Android.
-
-Sistem monitoring parkir secara real-time.
-
-20. Kesimpulan
-
-Sistem Parking merupakan aplikasi berbasis web yang dirancang untuk membantu proses pengelolaan tempat parkir secara digital.
-
-Dengan adanya pembagian hak akses Admin, Owner, Petugas, dan Pengguna, setiap pengguna dapat menjalankan fungsi sesuai dengan kebutuhannya.
+Dengan adanya pembagian hak akses **Admin, Owner, Petugas, dan Pengguna**, setiap pengguna dapat menjalankan fungsi sesuai dengan kebutuhannya.
 
 Sistem dapat membantu mengelola data kendaraan, area parkir, booking, tarif, transaksi, pengguna, serta laporan secara lebih terstruktur. Penggunaan PHP dan MySQL juga memungkinkan sistem untuk dikembangkan lebih lanjut sesuai kebutuhan.
 
 Dengan pengembangan fitur tambahan seperti pembayaran online, QR Code, notifikasi, dan monitoring slot secara real-time, Sistem Parking dapat menjadi aplikasi pengelolaan parkir yang lebih lengkap dan modern.
+
+---
+
+## 👨‍💻 Developer
+
+**Muhammad Zaidan Rafa**
+
+**Project:** Sistem Parking Berbasis Web
+
+---
+
+<p align="center">
+  <b>🚗 SISTEM PARKING</b><br>
+  Sistem Pengelolaan Parkir Berbasis Web
+</p>
+
+<p align="center">
+  Made with ❤️ using PHP & MySQL
+</p>
