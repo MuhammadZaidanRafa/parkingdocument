@@ -8,6 +8,8 @@
 **Database:** MySQL
 **Server Lokal:** XAMPP
 **Hosting:** InfinityFree
+**Link Project:**https://parkingrafa.freedev.app/?i=2
+**Link Canva:** https://www.canva.com/design/DAHQLNu2wRM/riwvKSD-XP3-ayNR7PuOCg/edit
 
 ---
 
