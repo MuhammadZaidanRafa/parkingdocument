@@ -1077,7 +1077,7 @@ table tr:hover td {
                             <td>
 
                                 <a
-                                    href="quitansi.php?id_booking=<?= (int) $data['id_booking']; ?>"
+                                    href="struk.php?id_booking=<?= (int) $data['id_booking']; ?>"
                                     class="btn-kecil"
                                 >
                                     🧾 Kuitansi

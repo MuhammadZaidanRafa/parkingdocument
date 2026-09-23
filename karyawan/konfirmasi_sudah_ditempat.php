@@ -13,14 +13,14 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 require_once __DIR__ . '/../db.php';
 
 /* =========================================================
-   CEK KONEKSI DATABASE
+   CEK KONEKSI
    ========================================================= */
 if (!isset($conn) || !($conn instanceof mysqli)) {
     die("Koneksi database tidak tersedia.");
 }
 
 /* =========================================================
-   CEK LOGIN PENGGUNA
+   CEK LOGIN
    ========================================================= */
 if (!isset($_SESSION['id_user'])) {
     header("Location: ../login_pengguna.php");
@@ -49,39 +49,73 @@ if ($id_booking <= 0) {
 }
 
 /* =========================================================
-   FUNGSI SINKRONISASI AREA
+   SINKRONISASI AREA KARYAWAN
    ========================================================= */
-function sinkronisasiArea(mysqli $conn, int $id_area): void
-{
+function sinkronisasiAreaKaryawan(
+    mysqli $conn,
+    int $id_area_karyawan
+): void {
+
     $sql = "
-        UPDATE tb_area_parkir a
-        SET a.terisi = (
-            SELECT COUNT(*)
-            FROM tb_transaksi t
-            WHERE t.id_area = a.id_area
-              AND t.status = 'masuk'
-              AND t.waktu_keluar IS NULL
-        )
-        WHERE a.id_area = ?
+        UPDATE tb_area_parkir_karyawan a
+        SET
+            a.terisi = (
+                SELECT COUNT(*)
+                FROM tb_transaksi t
+                WHERE t.id_area_karyawan = a.id_area_karyawan
+                  AND t.status = 'masuk'
+                  AND t.waktu_keluar IS NULL
+            ),
+            a.status = CASE
+
+                WHEN a.terisi >= a.kapasitas
+                    THEN 'penuh'
+
+                ELSE 'tersedia'
+
+            END
+
+        WHERE a.id_area_karyawan = ?
     ";
 
     $stmt = $conn->prepare($sql);
 
-    if ($stmt) {
-        $stmt->bind_param("i", $id_area);
-        $stmt->execute();
-        $stmt->close();
+    if (!$stmt) {
+        throw new Exception(
+            "Gagal sinkronisasi area karyawan: " .
+            $conn->error
+        );
     }
+
+    $stmt->bind_param(
+        "i",
+        $id_area_karyawan
+    );
+
+    if (!$stmt->execute()) {
+        $error = $stmt->error;
+        $stmt->close();
+
+        throw new Exception(
+            "Gagal memperbarui kapasitas area karyawan: " .
+            $error
+        );
+    }
+
+    $stmt->close();
 }
 
 /* =========================================================
-   AMBIL DATA BOOKING
+   AMBIL DATA BOOKING KARYAWAN
    ========================================================= */
 $sql_booking = "
+
     SELECT
+
         b.id_booking,
         b.id_kendaraan,
         b.id_area,
+        b.id_area_karyawan,
         b.id_user,
         b.tanggal,
         b.jam_masuk,
@@ -96,15 +130,17 @@ $sql_booking = "
 
         a.nama_area,
         a.kapasitas,
-        a.terisi
+        a.terisi,
+        a.rating,
+        a.status AS status_area
 
     FROM tb_booking b
 
     INNER JOIN tb_kendaraan k
         ON k.id_kendaraan = b.id_kendaraan
 
-    INNER JOIN tb_area_parkir a
-        ON a.id_area = b.id_area
+    INNER JOIN tb_area_parkir_karyawan a
+        ON a.id_area_karyawan = b.id_area_karyawan
 
     WHERE b.id_booking = ?
       AND b.id_user = ?
@@ -116,7 +152,7 @@ $stmt_booking = $conn->prepare($sql_booking);
 
 if (!$stmt_booking) {
     die(
-        "Gagal memproses data booking: " .
+        "Gagal mengambil data booking karyawan: " .
         $conn->error
     );
 }
@@ -141,14 +177,14 @@ $stmt_booking->close();
 if (!$booking) {
 
     $_SESSION['pesan_error'] =
-        "Data booking tidak ditemukan.";
+        "Data booking karyawan tidak ditemukan.";
 
     header("Location: riwayat.php");
     exit;
 }
 
 /* =========================================================
-   PROSES KONFIRMASI KEDATANGAN
+   PROSES KONFIRMASI
    ========================================================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -160,17 +196,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
            1. LOCK BOOKING
            ================================================= */
         $sql_lock_booking = "
+
             SELECT
+
                 id_booking,
                 id_kendaraan,
                 id_area,
+                id_area_karyawan,
                 id_user,
                 status,
                 estimasi_jam
+
             FROM tb_booking
+
             WHERE id_booking = ?
               AND id_user = ?
+
             LIMIT 1
+
             FOR UPDATE
         ";
 
@@ -179,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_lock_booking) {
             throw new Exception(
-                "Gagal mengunci data booking."
+                "Gagal mengunci booking karyawan."
             );
         }
 
@@ -201,44 +244,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$booking_lock) {
             throw new Exception(
-                "Booking tidak ditemukan."
+                "Booking karyawan tidak ditemukan."
             );
         }
 
         /* =================================================
-           2. PASTIKAN STATUS MASIH BOOKING
+           2. CEK STATUS BOOKING
            ================================================= */
         if ($booking_lock['status'] !== 'booking') {
 
             throw new Exception(
-                "Booking ini sudah dikonfirmasi atau " .
-                "sudah tidak dapat digunakan."
+                "Booking ini sudah dikonfirmasi " .
+                "atau sudah tidak dapat digunakan."
             );
         }
 
         $id_kendaraan =
             (int) $booking_lock['id_kendaraan'];
 
-        $id_area =
-            (int) $booking_lock['id_area'];
+        $id_area_karyawan =
+            (int) $booking_lock['id_area_karyawan'];
 
         $booking_user =
             (int) $booking_lock['id_user'];
 
+        if ($id_area_karyawan <= 0) {
+            throw new Exception(
+                "Area parkir karyawan belum ditentukan."
+            );
+        }
+
         /* =================================================
-           3. LOCK DATA KENDARAAN
+           3. LOCK KENDARAAN
            ================================================= */
         $sql_vehicle = "
+
             SELECT
+
                 id_kendaraan,
                 plat_nomor,
                 jenis_kendaraan,
                 merk,
                 warna,
                 pemilik
+
             FROM tb_kendaraan
+
             WHERE id_kendaraan = ?
+
             LIMIT 1
+
             FOR UPDATE
         ";
 
@@ -247,7 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_vehicle) {
             throw new Exception(
-                "Gagal mengambil data kendaraan."
+                "Gagal mengambil kendaraan."
             );
         }
 
@@ -273,17 +328,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* =================================================
-           4. LOCK AREA PARKIR
+           4. LOCK AREA KARYAWAN
            ================================================= */
         $sql_area = "
+
             SELECT
-                id_area,
+
+                id_area_karyawan,
                 nama_area,
                 kapasitas,
-                terisi
-            FROM tb_area_parkir
-            WHERE id_area = ?
+                terisi,
+                rating,
+                status
+
+            FROM tb_area_parkir_karyawan
+
+            WHERE id_area_karyawan = ?
+
             LIMIT 1
+
             FOR UPDATE
         ";
 
@@ -292,13 +355,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_area) {
             throw new Exception(
-                "Gagal mengambil data area parkir."
+                "Gagal mengambil area parkir karyawan."
             );
         }
 
         $stmt_area->bind_param(
             "i",
-            $id_area
+            $id_area_karyawan
         );
 
         $stmt_area->execute();
@@ -313,7 +376,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$area) {
             throw new Exception(
-                "Area parkir tidak ditemukan."
+                "Area parkir karyawan tidak ditemukan."
+            );
+        }
+
+        /* =================================================
+           5. CEK STATUS AREA
+           ================================================= */
+        if ($area['status'] === 'nonaktif') {
+
+            throw new Exception(
+                "Area " .
+                $area['nama_area'] .
+                " sedang nonaktif."
             );
         }
 
@@ -321,13 +396,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) $area['kapasitas'];
 
         /* =================================================
-           5. HITUNG KENDARAAN AKTIF
+           6. HITUNG PARKIR AKTIF KARYAWAN
            ================================================= */
         $sql_count = "
+
             SELECT COUNT(*) AS total_aktif
+
             FROM tb_transaksi
-            WHERE id_area = ?
+
+            WHERE id_area_karyawan = ?
+
               AND status = 'masuk'
+
               AND waktu_keluar IS NULL
         ";
 
@@ -336,13 +416,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_count) {
             throw new Exception(
-                "Gagal menghitung kendaraan aktif."
+                "Gagal menghitung kendaraan karyawan."
             );
         }
 
         $stmt_count->bind_param(
             "i",
-            $id_area
+            $id_area_karyawan
         );
 
         $stmt_count->execute();
@@ -359,12 +439,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) ($data_count['total_aktif'] ?? 0);
 
         /* =================================================
-           6. CEK KAPASITAS
+           7. CEK KAPASITAS
            ================================================= */
+        if ($kapasitas <= 0) {
+
+            throw new Exception(
+                "Kapasitas area " .
+                $area['nama_area'] .
+                " belum diatur."
+            );
+        }
+
         if ($total_aktif >= $kapasitas) {
 
             throw new Exception(
-                "Area parkir " .
+                "Area karyawan " .
                 $area['nama_area'] .
                 " sudah penuh (" .
                 $total_aktif .
@@ -375,15 +464,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* =================================================
-           7. CEK KENDARAAN SUDAH PARKIR
+           8. CEK KENDARAAN SUDAH PARKIR
            ================================================= */
         $sql_existing = "
-            SELECT
-                id_parkir
+
+            SELECT id_parkir
+
             FROM tb_transaksi
+
             WHERE id_kendaraan = ?
+
               AND status = 'masuk'
+
               AND waktu_keluar IS NULL
+
             LIMIT 1
         ";
 
@@ -392,7 +486,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_existing) {
             throw new Exception(
-                "Gagal memeriksa status kendaraan."
+                "Gagal memeriksa kendaraan aktif."
             );
         }
 
@@ -421,7 +515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* =================================================
-           8. NORMALISASI JENIS KENDARAAN
+           9. NORMALISASI JENIS KENDARAAN
            ================================================= */
         $jenis = strtolower(
             trim(
@@ -465,15 +559,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* =================================================
-           9. AMBIL TARIF
+           10. AMBIL TARIF
            ================================================= */
         $sql_tarif = "
+
             SELECT
+
                 id_tarif,
                 jenis_kendaraan,
                 tarif_per_jam
+
             FROM tb_tarif
-            WHERE LOWER(TRIM(jenis_kendaraan)) = ?
+
+            WHERE LOWER(
+                TRIM(jenis_kendaraan)
+            ) = ?
+
             LIMIT 1
         ";
 
@@ -482,7 +583,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_tarif) {
             throw new Exception(
-                "Gagal mengambil tarif parkir."
+                "Gagal mengambil tarif."
             );
         }
 
@@ -512,22 +613,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 )
             );
 
-            $sql_tarif2 = "
-                SELECT
-                    id_tarif,
-                    jenis_kendaraan,
-                    tarif_per_jam
-                FROM tb_tarif
-                WHERE LOWER(TRIM(jenis_kendaraan)) = ?
-                LIMIT 1
-            ";
-
             $stmt_tarif2 =
-                $conn->prepare($sql_tarif2);
+                $conn->prepare($sql_tarif);
 
             if (!$stmt_tarif2) {
                 throw new Exception(
-                    "Gagal mengambil tarif parkir."
+                    "Gagal mengambil tarif kendaraan."
                 );
             }
 
@@ -560,9 +651,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) $tarif['id_tarif'];
 
         /* =================================================
-           10. BUAT TRANSAKSI PARKIR AKTIF
+           11. BUAT TRANSAKSI PARKIR KARYAWAN
            ================================================= */
         $sql_insert = "
+
             INSERT INTO tb_transaksi
             (
                 id_kendaraan,
@@ -571,8 +663,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 status,
                 id_user,
                 id_area,
+                id_area_karyawan,
                 id_booking
             )
+
             VALUES
             (
                 ?,
@@ -580,6 +674,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ?,
                 'masuk',
                 ?,
+                NULL,
                 ?,
                 ?
             )
@@ -590,7 +685,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_insert) {
             throw new Exception(
-                "Gagal membuat transaksi parkir: " .
+                "Gagal membuat transaksi parkir karyawan: " .
                 $conn->error
             );
         }
@@ -600,7 +695,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $id_kendaraan,
             $id_tarif,
             $booking_user,
-            $id_area,
+            $id_area_karyawan,
             $id_booking
         );
 
@@ -612,7 +707,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_insert->close();
 
             throw new Exception(
-                "Gagal membuat transaksi parkir: " .
+                "Gagal membuat transaksi parkir karyawan: " .
                 $error_insert
             );
         }
@@ -620,7 +715,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_insert->close();
 
         /* =================================================
-           11. UBAH BOOKING MENJADI AKTIF
+           12. UPDATE BOOKING
            ================================================= */
         $tanggal_sekarang =
             date('Y-m-d');
@@ -629,11 +724,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             date('H:i:s');
 
         $sql_update_booking = "
+
             UPDATE tb_booking
+
             SET
+
                 status = 'aktif',
                 tanggal = ?,
-                jam_masuk = ?
+                jam_masuk = ?,
+                id_area = NULL,
+                id_area_karyawan = ?
+
             WHERE id_booking = ?
               AND id_user = ?
               AND status = 'booking'
@@ -646,14 +747,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$stmt_update_booking) {
             throw new Exception(
-                "Gagal memperbarui status booking."
+                "Gagal memperbarui booking karyawan."
             );
         }
 
         $stmt_update_booking->bind_param(
-            "ssii",
+            "ssiii",
             $tanggal_sekarang,
             $jam_sekarang,
+            $id_area_karyawan,
             $id_booking,
             $id_user
         );
@@ -666,7 +768,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_update_booking->close();
 
             throw new Exception(
-                "Gagal mengaktifkan booking: " .
+                "Gagal mengaktifkan booking karyawan: " .
                 $error_update
             );
         }
@@ -679,44 +781,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($affected <= 0) {
 
             throw new Exception(
-                "Booking sudah diproses oleh sistem."
+                "Booking karyawan sudah diproses."
             );
         }
 
         /* =================================================
-           12. SINKRONISASI AREA
+           13. SINKRONISASI AREA KARYAWAN
            ================================================= */
-        sinkronisasiArea(
+        sinkronisasiAreaKaryawan(
             $conn,
-            $id_area
+            $id_area_karyawan
         );
 
         /* =================================================
-           13. COMMIT
+           14. COMMIT
            ================================================= */
         $conn->commit();
 
         /* =================================================
-           14. REDIRECT KE RIWAYAT.PHP
+           15. REDIRECT RIWAYAT
            ================================================= */
         $_SESSION['pesan_sukses'] =
-            "Kedatangan berhasil dikonfirmasi. " .
+            "Kedatangan karyawan berhasil dikonfirmasi. " .
             "Kendaraan " .
             $kendaraan['plat_nomor'] .
-            " sekarang tercatat sedang parkir.";
+            " sekarang tercatat sedang parkir di area " .
+            $area['nama_area'] .
+            ".";
 
         header("Location: riwayat.php");
         exit;
 
     } catch (Throwable $e) {
 
-        /* =================================================
-           ROLLBACK
-           ================================================= */
         try {
             $conn->rollback();
         } catch (Throwable $rollbackError) {
-            // Abaikan error rollback
         }
 
         $_SESSION['pesan_error'] =
@@ -728,7 +828,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* =========================================================
-   DATA UNTUK TAMPILAN
+   DATA TAMPILAN
    ========================================================= */
 $plat_nomor = htmlspecialchars(
     $booking['plat_nomor'] ?? '-',
@@ -775,6 +875,12 @@ $jam_masuk = htmlspecialchars(
     'UTF-8'
 );
 
+$kapasitas =
+    (int) ($booking['kapasitas'] ?? 0);
+
+$terisi =
+    (int) ($booking['terisi'] ?? 0);
+
 ?>
 
 <!DOCTYPE html>
@@ -790,7 +896,7 @@ $jam_masuk = htmlspecialchars(
     >
 
     <title>
-        Konfirmasi Kedatangan - E-Parkir
+        Konfirmasi Kedatangan Karyawan - E-Parkir
     </title>
 
     <style>
@@ -802,7 +908,6 @@ $jam_masuk = htmlspecialchars(
         }
 
         body {
-
             font-family:
                 Arial,
                 Helvetica,
@@ -829,15 +934,12 @@ $jam_masuk = htmlspecialchars(
         }
 
         .container {
-
             width: 100%;
-
             max-width: 700px;
         }
 
         .card {
-
-            background: #ffffff;
+            background: #fff;
 
             border-radius: 22px;
 
@@ -845,58 +947,63 @@ $jam_masuk = htmlspecialchars(
 
             box-shadow:
                 0 20px 50px
-                rgba(15, 23, 42, 0.12);
+                rgba(15, 23, 42, .12);
         }
 
         .header {
-
             text-align: center;
-
             margin-bottom: 28px;
         }
 
         .icon {
-
             width: 70px;
-
             height: 70px;
 
-            margin:
-                0 auto 15px;
+            margin: 0 auto 15px;
 
             border-radius: 50%;
 
             display: flex;
 
             align-items: center;
-
             justify-content: center;
 
             font-size: 34px;
 
-            background: #dcfce7;
-
-            color: #16a34a;
+            background: #dbeafe;
+            color: #2563eb;
         }
 
         h1 {
-
             font-size: 26px;
-
             margin-bottom: 8px;
-
             color: #0f172a;
         }
 
         .subtitle {
-
             color: #64748b;
-
             line-height: 1.6;
         }
 
-        .info {
+        .badge {
+            display: inline-block;
 
+            margin-top: 12px;
+
+            padding: 7px 14px;
+
+            border-radius: 999px;
+
+            background: #dbeafe;
+
+            color: #1d4ed8;
+
+            font-size: 13px;
+
+            font-weight: 700;
+        }
+
+        .info {
             display: grid;
 
             grid-template-columns:
@@ -908,7 +1015,6 @@ $jam_masuk = htmlspecialchars(
         }
 
         .item {
-
             background: #f8fafc;
 
             border:
@@ -920,7 +1026,6 @@ $jam_masuk = htmlspecialchars(
         }
 
         .label {
-
             display: block;
 
             font-size: 12px;
@@ -935,16 +1040,29 @@ $jam_masuk = htmlspecialchars(
         }
 
         .value {
-
             font-weight: 700;
-
             color: #0f172a;
 
             word-break: break-word;
         }
 
-        .warning {
+        .capacity {
+            margin-bottom: 20px;
 
+            padding: 15px;
+
+            border-radius: 14px;
+
+            background: #eff6ff;
+
+            border: 1px solid #bfdbfe;
+
+            color: #1e40af;
+
+            line-height: 1.6;
+        }
+
+        .warning {
             background: #fff7ed;
 
             border:
@@ -962,15 +1080,12 @@ $jam_masuk = htmlspecialchars(
         }
 
         .actions {
-
             display: flex;
-
             gap: 12px;
         }
 
         button,
         .back {
-
             width: 100%;
 
             border: 0;
@@ -993,29 +1108,23 @@ $jam_masuk = htmlspecialchars(
         }
 
         .confirm {
-
-            background: #16a34a;
-
-            color: white;
+            background: #2563eb;
+            color: #fff;
         }
 
         .confirm:hover {
-
-            background: #15803d;
+            background: #1d4ed8;
 
             transform:
                 translateY(-1px);
         }
 
         .back {
-
             background: #e2e8f0;
-
             color: #334155;
         }
 
         .back:hover {
-
             background: #cbd5e1;
         }
 
@@ -1063,19 +1172,19 @@ $jam_masuk = htmlspecialchars(
             </h1>
 
             <p class="subtitle">
-
-                Pastikan Anda sudah berada
-                di lokasi parkir sebelum
-                melakukan konfirmasi.
-
+                Konfirmasi kedatangan kendaraan
+                untuk <strong>area parkir karyawan</strong>.
             </p>
+
+            <span class="badge">
+                PARKIR KARYAWAN
+            </span>
 
         </div>
 
         <div class="info">
 
             <div class="item">
-
                 <span class="label">
                     Plat Nomor
                 </span>
@@ -1083,11 +1192,9 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $plat_nomor ?>
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
                     Kendaraan
                 </span>
@@ -1095,11 +1202,9 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $jenis_kendaraan ?>
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
                     Merk
                 </span>
@@ -1107,11 +1212,9 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $merk ?>
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
                     Warna
                 </span>
@@ -1119,23 +1222,19 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $warna ?>
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
-                    Area Parkir
+                    Area Karyawan
                 </span>
 
                 <span class="value">
                     <?= $nama_area ?>
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
                     Estimasi Parkir
                 </span>
@@ -1143,11 +1242,9 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $estimasi_jam ?> jam
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
                     Tanggal Booking
                 </span>
@@ -1155,11 +1252,9 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $tanggal ?>
                 </span>
-
             </div>
 
             <div class="item">
-
                 <span class="label">
                     Jam Booking
                 </span>
@@ -1167,8 +1262,19 @@ $jam_masuk = htmlspecialchars(
                 <span class="value">
                     <?= $jam_masuk ?>
                 </span>
-
             </div>
+
+        </div>
+
+        <div class="capacity">
+
+            <strong>Kapasitas Area</strong><br>
+
+            Terisi:
+            <strong><?= $terisi ?></strong>
+            /
+            <strong><?= $kapasitas ?></strong>
+            kendaraan
 
         </div>
 
@@ -1176,12 +1282,13 @@ $jam_masuk = htmlspecialchars(
 
             <strong>Perhatian:</strong><br>
 
-            Setelah Anda menekan tombol
+            Setelah menekan
             <strong>Konfirmasi Kedatangan</strong>,
             kendaraan akan langsung dicatat sebagai
-            <strong>sedang parkir</strong>.
+            <strong>sedang parkir di area karyawan</strong>.
 
-            Timer parkir dimulai dari waktu konfirmasi.
+            Waktu masuk parkir dimulai saat
+            konfirmasi dilakukan.
 
         </div>
 
@@ -1189,7 +1296,7 @@ $jam_masuk = htmlspecialchars(
             method="POST"
             onsubmit="
                 return confirm(
-                    'Apakah Anda sudah berada di lokasi parkir dan ingin mengonfirmasi kedatangan?'
+                    'Apakah Anda sudah berada di lokasi parkir karyawan dan ingin mengonfirmasi kedatangan?'
                 );
             "
         >

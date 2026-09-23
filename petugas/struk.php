@@ -8,37 +8,45 @@ require_once "../db.php";
    CEK LOGIN
    ========================================================= */
 if (!isset($_SESSION['id_user'])) {
-    header("Location: login.php");
+    header("Location: ../login.php");
     exit;
 }
 
 /* =========================================================
-   CEK ID BOOKING
+   CEK ROLE
+   Disamakan dengan scan_qr.php.
+   Halaman ini membuka transaksi berdasarkan id_parkir,
+   jadi hanya boleh diakses staf.
    ========================================================= */
-if (!isset($_GET['id_booking']) || !is_numeric($_GET['id_booking'])) {
-    die("ID booking tidak ditemukan.");
+$role = $_SESSION['role'] ?? '';
+
+if (!in_array($role, ['petugas', 'karyawan', 'admin'])) {
+    die("Akses ditolak.");
 }
 
-$id_booking = (int) $_GET['id_booking'];
-$id_user    = (int) $_SESSION['id_user'];
+/* =========================================================
+   CEK ID TRANSAKSI (id_parkir)
+   Dipanggil dari transaksi.php: struk.php?id=<id_parkir>
+   ========================================================= */
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
+    die("ID transaksi tidak ditemukan.");
+}
+
+$id = (int) $_GET['id'];
 
 /* =========================================================
    AMBIL DATA TRANSAKSI
-
-   PENTING:
-   tb_transaksi.id_user = PETUGAS yang memproses (scan_qr.php
-   menyimpan id_user dari session petugas). Jadi kepemilikan
-   karcis TIDAK boleh dicek lewat tb_transaksi.id_user.
-   Pemilik karcis dicek lewat tb_booking.id_user (pelanggan).
+   Area reguler dan area karyawan sama-sama didukung.
+   tb_user.nama_lengkap = petugas yang memproses transaksi.
    ========================================================= */
 $stmt = $conn->prepare("
     SELECT
         tb_transaksi.*,
 
-        tb_booking.tanggal      AS tanggal_booking,
-        tb_booking.jam_masuk    AS jam_booking,
+        tb_booking.tanggal AS tanggal_booking,
+        tb_booking.jam_masuk AS jam_booking,
         tb_booking.estimasi_jam AS estimasi_booking,
-        tb_booking.status       AS status_booking,
+        tb_booking.status AS status_booking,
 
         tb_kendaraan.plat_nomor,
         tb_kendaraan.pemilik,
@@ -50,7 +58,7 @@ $stmt = $conn->prepare("
 
     FROM tb_transaksi
 
-    INNER JOIN tb_booking
+    LEFT JOIN tb_booking
         ON tb_transaksi.id_booking = tb_booking.id_booking
 
     LEFT JOIN tb_kendaraan
@@ -65,10 +73,8 @@ $stmt = $conn->prepare("
     LEFT JOIN tb_user
         ON tb_transaksi.id_user = tb_user.id_user
 
-    WHERE tb_transaksi.id_booking = ?
-      AND tb_booking.id_user = ?
+    WHERE tb_transaksi.id_parkir = ?
 
-    ORDER BY tb_transaksi.id_parkir DESC
     LIMIT 1
 ");
 
@@ -76,142 +82,95 @@ if (!$stmt) {
     die("Query gagal: " . $conn->error);
 }
 
-$stmt->bind_param("ii", $id_booking, $id_user);
+$stmt->bind_param("i", $id);
 $stmt->execute();
 
 $data = $stmt->get_result()->fetch_assoc();
 
 $stmt->close();
 
-/* =========================================================
-   JIKA TRANSAKSI BELUM ADA
-   ========================================================= */
 if (!$data) {
-
-    /*
-     * Booking belum masuk ke tb_transaksi (kendaraan belum masuk).
-     * Ambil data booking supaya karcis tetap bisa ditampilkan.
-     */
-    $stmtBooking = $conn->prepare("
-        SELECT
-            tb_booking.*,
-
-            tb_kendaraan.plat_nomor,
-            tb_kendaraan.pemilik,
-            tb_kendaraan.jenis_kendaraan,
-
-            COALESCE(tb_area_parkir.nama_area, ak.nama_area) AS nama_area
-
-        FROM tb_booking
-
-        LEFT JOIN tb_kendaraan
-            ON tb_booking.id_kendaraan = tb_kendaraan.id_kendaraan
-
-        LEFT JOIN tb_area_parkir
-            ON tb_booking.id_area = tb_area_parkir.id_area
-
-        LEFT JOIN tb_area_parkir_karyawan ak
-            ON tb_booking.id_area_karyawan = ak.id_area_karyawan
-
-        WHERE tb_booking.id_booking = ?
-          AND tb_booking.id_user = ?
-
-        LIMIT 1
-    ");
-
-    if (!$stmtBooking) {
-        die("Query booking gagal: " . $conn->error);
-    }
-
-    $stmtBooking->bind_param("ii", $id_booking, $id_user);
-    $stmtBooking->execute();
-
-    $booking = $stmtBooking->get_result()->fetch_assoc();
-
-    $stmtBooking->close();
-
-    if (!$booking) {
-        die("Booking #$id_booking tidak ditemukan.");
-    }
-
-    $id_parkir = "-";
-
-    $plat_nomor      = $booking['plat_nomor'] ?? '-';
-    $pemilik         = !empty($booking['pemilik']) ? $booking['pemilik'] : '-';
-    $jenis_kendaraan = $booking['jenis_kendaraan'] ?? '-';
-
-    $nama_area = !empty($booking['nama_area']) ? $booking['nama_area'] : 'Belum ditentukan';
-
-    /* Belum ada petugas yang memproses */
-    $nama_petugas = '-';
-
-    $tanggal      = $booking['tanggal'] ?? '-';
-    $jam_booking  = $booking['jam_masuk'] ?? '-';
-    $estimasi_jam = $booking['estimasi_jam'] ?? 0;
-
-    $waktu_masuk  = '-';
-    $waktu_keluar = '-';
-
-    $durasi_jam  = $estimasi_jam;
-    $biaya_total = 0;
-
-    $metode_pembayaran = '-';
-
-    $status_booking = $booking['status'] ?? 'booking';
-
-} else {
-
-    /* =====================================================
-       DATA TRANSAKSI
-       ===================================================== */
-
-    $id_parkir = $data['id_parkir'] ?? '-';
-
-    $plat_nomor      = $data['plat_nomor'] ?? '-';
-    $pemilik         = !empty($data['pemilik']) ? $data['pemilik'] : '-';
-    $jenis_kendaraan = $data['jenis_kendaraan'] ?? '-';
-
-    $nama_area    = !empty($data['nama_area']) ? $data['nama_area'] : 'Belum ditentukan';
-    $nama_petugas = !empty($data['nama_lengkap']) ? $data['nama_lengkap'] : '-';
-
-    $tanggal      = $data['tanggal_booking'] ?? '-';
-    $jam_booking  = $data['jam_booking'] ?? '-';
-    $estimasi_jam = $data['estimasi_booking'] ?? 0;
-
-    $waktu_masuk  = !empty($data['waktu_masuk']) ? $data['waktu_masuk'] : '-';
-    $waktu_keluar = !empty($data['waktu_keluar']) ? $data['waktu_keluar'] : '-';
-
-    $durasi_jam  = $data['durasi_jam'] ?? 0;
-    $biaya_total = $data['biaya_total'] ?? 0;
-
-    $metode_pembayaran = !empty($data['metode_pembayaran']) ? $data['metode_pembayaran'] : '-';
-
-    $status_booking = $data['status_booking'] ?? '-';
+    die("Transaksi #" . $id . " tidak ditemukan.");
 }
 
-/* Status dinormalisasi supaya sama dengan scan_qr.php */
-$status_booking = strtolower(trim((string) $status_booking));
+/* =========================================================
+   VARIABEL TAMPILAN
+   ========================================================= */
+$id_parkir  = $data['id_parkir'] ?? '-';
+$id_booking = !empty($data['id_booking']) ? $data['id_booking'] : '-';
+
+$plat_nomor      = $data['plat_nomor'] ?? '-';
+$pemilik         = !empty($data['pemilik']) ? $data['pemilik'] : '-';
+$jenis_kendaraan = $data['jenis_kendaraan'] ?? '-';
+
+$nama_area    = !empty($data['nama_area']) ? $data['nama_area'] : 'Belum ditentukan';
+$nama_petugas = !empty($data['nama_lengkap']) ? $data['nama_lengkap'] : '-';
+
+$waktu_masuk  = !empty($data['waktu_masuk']) ? $data['waktu_masuk'] : '-';
+$waktu_keluar = !empty($data['waktu_keluar']) ? $data['waktu_keluar'] : '-';
+
+/* Tanggal: dari booking bila ada, kalau parkir langsung pakai tanggal masuk */
+if (!empty($data['tanggal_booking'])) {
+    $tanggal = $data['tanggal_booking'];
+} elseif (!empty($data['waktu_masuk'])) {
+    $tanggal = date('Y-m-d', strtotime($data['waktu_masuk']));
+} else {
+    $tanggal = '-';
+}
+
+$jam_booking  = !empty($data['jam_booking']) ? $data['jam_booking'] : '-';
+$estimasi_txt = !empty($data['estimasi_booking']) ? $data['estimasi_booking'] . ' Jam' : '-';
+
+$durasi_jam  = $data['durasi_jam'] ?? 0;
+$biaya_total = $data['biaya_total'] ?? 0;
+
+$metode_pembayaran = !empty($data['metode_pembayaran']) ? $data['metode_pembayaran'] : '-';
+
+/*
+ * Status dinormalisasi (huruf kecil) supaya sama dengan scan_qr.php.
+ *
+ * status_parkir  = status di tb_transaksi (masuk / keluar)
+ * status_booking = status di tb_booking (booking / aktif / selesai / batal)
+ */
+$status_parkir  = strtolower(trim((string) ($data['status'] ?? '')));
+$status_booking = strtolower(trim((string) ($data['status_booking'] ?? '')));
 
 /* =========================================================
    QR DINAMIS - HANYA 1 QR SESUAI STATUS
 
-   booking       = QR MASUK
-   aktif         = QR KELUAR
-   selesai/batal = tidak ada QR
+   Format yang dibaca scan_qr.php:
+
+   PARKIR|MASUK|ID_BOOKING       -> check-in booking
+   PARKIR|KELUAR|ID_BOOKING      -> keluar (booking aktif)
+   PARKIR|TRANSAKSI|ID_PARKIR    -> keluar berdasarkan transaksi
+                                    (parkir langsung / booking
+                                    yang statusnya belum 'aktif')
+
+   Kendaraan masih parkir (transaksi 'masuk') = QR KELUAR
+   Booking belum masuk                        = QR MASUK
+   Sudah keluar / batal                       = tidak ada QR
    ========================================================= */
-
 $qr_action = null;
+$qr_code   = '';
 
-if ($status_booking === 'booking') {
-    $qr_action = 'MASUK';
-} elseif ($status_booking === 'aktif') {
+if ($status_parkir === 'masuk') {
+
     $qr_action = 'KELUAR';
-}
 
-$qr_code = '';
+    if (!empty($data['id_booking']) && $status_booking === 'aktif') {
 
-if ($qr_action !== null) {
-    $qr_code = 'PARKIR|' . $qr_action . '|' . $id_booking;
+        $qr_code = 'PARKIR|KELUAR|' . (int) $data['id_booking'];
+
+    } else {
+
+        $qr_code = 'PARKIR|TRANSAKSI|' . (int) $data['id_parkir'];
+    }
+
+} elseif (!empty($data['id_booking']) && $status_booking === 'booking') {
+
+    $qr_action = 'MASUK';
+
+    $qr_code = 'PARKIR|MASUK|' . (int) $data['id_booking'];
 }
 
 ?>
@@ -226,10 +185,9 @@ if ($qr_action !== null) {
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Karcis Parkir #<?= htmlspecialchars((string) $id_booking) ?></title>
+<title>Struk Parkir #<?= htmlspecialchars((string) $id_parkir) ?></title>
 
 <!-- QR CODE LIBRARY -->
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
@@ -305,6 +263,14 @@ table td:first-child {
     border: 1px solid #000000;
     font-weight: bold;
     font-size: 13px;
+    line-height: 1.6;
+}
+
+.qr-box {
+    text-align: center;
+    padding: 12px 5px;
+    border: 1px dashed #000000;
+    margin-top: 12px;
 }
 
 .qr-title {
@@ -334,24 +300,17 @@ table td:first-child {
     margin: auto;
 }
 
-.qr-box {
-    text-align: center;
-    padding: 12px 5px;
-    border: 1px dashed #000000;
-    margin-top: 12px;
+.qr-info {
+    font-family: Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.4;
+    margin-top: 8px;
 }
 
 .qr-code-text {
     margin-top: 8px;
     font-size: 10px;
     word-break: break-all;
-}
-
-.qr-info {
-    font-family: Arial, sans-serif;
-    font-size: 11px;
-    line-height: 1.4;
-    margin-top: 8px;
 }
 
 .total {
@@ -400,6 +359,10 @@ a:hover {
 
 @media print {
 
+    @page {
+        margin: 0;
+    }
+
     body {
         background: #ffffff;
         padding: 0;
@@ -414,6 +377,11 @@ a:hover {
 
     .btn {
         display: none;
+    }
+
+    .qr-container {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
     }
 
 }
@@ -447,7 +415,7 @@ a:hover {
         </div>
 
         <div class="subtitle">
-            E-TICKET PARKIR
+            STRUK PARKIR
         </div>
 
         <div class="alamat">
@@ -506,7 +474,7 @@ a:hover {
 
         <tr>
             <td>Estimasi</td>
-            <td>: <?= htmlspecialchars((string) $estimasi_jam) ?> Jam</td>
+            <td>: <?= htmlspecialchars((string) $estimasi_txt) ?></td>
         </tr>
 
         <tr>
@@ -542,12 +510,18 @@ a:hover {
 
     <div class="status-box">
 
-        STATUS BOOKING:
-        <?= htmlspecialchars(strtoupper($status_booking)) ?>
+        STATUS PARKIR:
+        <?= htmlspecialchars(strtoupper($status_parkir !== '' ? $status_parkir : '-')) ?>
+
+        <?php if ($status_booking !== ''): ?>
+            <br>
+            STATUS BOOKING:
+            <?= htmlspecialchars(strtoupper($status_booking)) ?>
+        <?php endif; ?>
 
     </div>
 
-    <!-- QR DINAMIS -->
+    <!-- QR DINAMIS (sama dengan struk pengguna & format scan_qr.php) -->
 
     <?php if ($qr_code !== ''): ?>
 
@@ -617,14 +591,23 @@ a:hover {
 
             <br><br>
 
-            <strong>Simpan karcis ini untuk masuk dan keluar.</strong>
+            <strong>
+                <?php if ($qr_action === 'MASUK'): ?>
+                    Simpan struk ini untuk masuk.
+                <?php else: ?>
+                    Simpan struk ini untuk keluar.
+                <?php endif; ?>
+            </strong>
 
         <?php endif; ?>
 
         <br><br>
 
         <small>
-            ID Booking #<?= htmlspecialchars((string) $id_booking) ?>
+            No Transaksi #<?= htmlspecialchars((string) $id_parkir) ?>
+            <?php if ($id_booking !== '-'): ?>
+                | ID Booking #<?= htmlspecialchars((string) $id_booking) ?>
+            <?php endif; ?>
         </small>
 
     </div>
@@ -637,7 +620,7 @@ a:hover {
             🖨 Cetak
         </button>
 
-        <a href="../dashboard_pengguna.php">
+        <a href="transaksi.php">
             Kembali
         </a>
 

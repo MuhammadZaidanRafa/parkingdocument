@@ -15,8 +15,8 @@ $id_user = (int) $_SESSION['id_user'];
 $nama    = $_SESSION['nama_lengkap'] ?? 'User';
 $role    = $_SESSION['role'] ?? '';
 
-/* Hanya admin */
-if ($role !== 'admin') {
+/* Hanya petugas */
+if ($role !== 'petugas') {
     header("Location: ../dashboard.php");
     exit;
 }
@@ -232,7 +232,7 @@ $data_user = mysqli_query(
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Kelola Kendaraan - E-Parkir Admin</title>
+<title>Kelola Kendaraan - E-Parkir Petugas</title>
 
 <style>
 
@@ -838,7 +838,7 @@ tr:hover {
 <aside class="sidebar" id="sidebar">
 
     <div class="brand">
-        🅿️ E-Parkir Admin
+        🅿️ E-Parkir Petugas
     </div>
 
     <div class="user-info">
@@ -860,17 +860,11 @@ tr:hover {
             </a>
         </li>
 
-        <li>
-            <a href="user.php">
-                <span>👤</span>
-                Kelola User
-            </a>
-        </li>
 
         <li>
-            <a href="tarif.php">
-                <span>💰</span>
-                Kelola Tarif
+            <a href="transaksi.php">
+                <span>🎫</span>
+                Transaksi Parkir
             </a>
         </li>
 

@@ -6,7 +6,7 @@ if (!isset($_SESSION['id_user'])) {
     header("Location: login.php");
     exit;
 }
-
+  
 if (($_SESSION['role'] ?? '') !== 'owner') {
     http_response_code(403);
     ?>
@@ -117,6 +117,12 @@ $totalTransaksi  = count($rows);
 $totalMasuk      = 0;
 $totalKeluar     = 0;
 $totalPendapatan = 0;
+
+// data untuk grafik
+$perHari  = [];   // 'Y-m-d' => ['transaksi' => n, 'pendapatan' => x]
+$perJenis = [];   // jenis kendaraan => jumlah transaksi
+$perArea  = [];   // nama area => jumlah transaksi
+
 foreach ($rows as $row) {
     if ($row['status'] === 'keluar') {
         $totalKeluar++;
@@ -124,7 +130,68 @@ foreach ($rows as $row) {
     } else {
         $totalMasuk++;
     }
+
+    // dikelompokkan berdasarkan tanggal masuk (sama dengan dasar filter tanggal)
+    $tglKey = date('Y-m-d', strtotime($row['waktu_masuk']));
+    if (!isset($perHari[$tglKey])) {
+        $perHari[$tglKey] = ['transaksi' => 0, 'pendapatan' => 0];
+    }
+    $perHari[$tglKey]['transaksi']++;
+    if ($row['status'] === 'keluar') {
+        $perHari[$tglKey]['pendapatan'] += (float) $row['biaya_total'];
+    }
+
+    $jenisKey = ucfirst(strtolower(trim((string) $row['jenis_kendaraan'])));
+    if ($jenisKey === '') {
+        $jenisKey = 'Lainnya';
+    }
+    $perJenis[$jenisKey] = ($perJenis[$jenisKey] ?? 0) + 1;
+
+    $areaKey = (string) $row['nama_area'];
+    $perArea[$areaKey] = ($perArea[$areaKey] ?? 0) + 1;
 }
+
+// jika periode dipilih dan tidak terlalu panjang, tampilkan juga hari tanpa transaksi (nilai 0)
+if ($tanggalAktif) {
+    $d1 = new DateTime($tgl_awal);
+    $d2 = new DateTime($tgl_akhir);
+    if ($d1->diff($d2)->days <= 60) {
+        for ($d = clone $d1; $d <= $d2; $d->modify('+1 day')) {
+            $k = $d->format('Y-m-d');
+            if (!isset($perHari[$k])) {
+                $perHari[$k] = ['transaksi' => 0, 'pendapatan' => 0];
+            }
+        }
+    }
+}
+ksort($perHari);
+arsort($perArea);
+
+$chartHariLabels     = [];
+$chartHariTransaksi  = [];
+$chartHariPendapatan = [];
+foreach ($perHari as $k => $v) {
+    $chartHariLabels[]     = date('d/m', strtotime($k));
+    $chartHariTransaksi[]  = $v['transaksi'];
+    $chartHariPendapatan[] = $v['pendapatan'];
+}
+
+$jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
+$chartData = [
+    'hari' => [
+        'labels'     => $chartHariLabels,
+        'transaksi'  => $chartHariTransaksi,
+        'pendapatan' => $chartHariPendapatan,
+    ],
+    'jenis' => [
+        'labels' => array_keys($perJenis),
+        'values' => array_values($perJenis),
+    ],
+    'area' => [
+        'labels' => array_keys($perArea),
+        'values' => array_values($perArea),
+    ],
+];
 
 $statusLabel = $statusFilter === 'keluar'
     ? 'Sudah Keluar'
@@ -140,6 +207,7 @@ $dicetakOleh = e($_SESSION['nama'] ?? $_SESSION['username'] ?? 'Owner');
 <title>Laporan Transaksi Parkir</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
     :root{
         --navy:#123C5D;
@@ -327,6 +395,42 @@ $dicetakOleh = e($_SESSION['nama'] ?? $_SESSION['username'] ?? 'Owner');
         margin-bottom:16px;
     }
 
+    /* ===== Grafik ===== */
+    .charts{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:16px;
+        margin-bottom:28px;
+    }
+
+    .chart-card{
+        border:1px solid var(--line);
+        border-radius:10px;
+        padding:16px 18px 14px;
+        page-break-inside:avoid;
+        break-inside:avoid;
+    }
+    .chart-card.wide{ grid-column:1 / -1; }
+
+    .chart-card h2{
+        font-family:'Plus Jakarta Sans',sans-serif;
+        font-size:14px;
+        font-weight:700;
+        color:var(--navy);
+        margin:0 0 2px;
+    }
+    .chart-card .sub{
+        font-size:11.5px;
+        color:var(--muted);
+        margin:0 0 12px;
+    }
+
+    .chart-box{
+        position:relative;
+        height:260px;
+    }
+    .chart-card.wide .chart-box{ height:300px; }
+
     table{
         width:100%;
         border-collapse:collapse;
@@ -409,6 +513,8 @@ $dicetakOleh = e($_SESSION['nama'] ?? $_SESSION['username'] ?? 'Owner');
         thead th{ background:var(--navy) !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         form.filter, .footer-actions{ display:none; }
         tbody tr{ page-break-inside:avoid; }
+        .charts{ page-break-after:always; break-after:page; }
+        .chart-card{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         @page{ size:A4 landscape; margin:14mm; }
         .print-signoff{
             display:flex;
@@ -428,6 +534,7 @@ $dicetakOleh = e($_SESSION['nama'] ?? $_SESSION['username'] ?? 'Owner');
 
     @media (max-width:720px){
         .stats{ grid-template-columns:1fr; }
+        .charts{ grid-template-columns:1fr; }
         .header{ flex-direction:column; }
         .header .meta{ text-align:left; }
         table{ display:block; overflow-x:auto; white-space:nowrap; }
@@ -510,6 +617,26 @@ $dicetakOleh = e($_SESSION['nama'] ?? $_SESSION['username'] ?? 'Owner');
             </div>
         </div>
 
+        <?php if (!empty($rows)): ?>
+        <div class="charts">
+            <div class="chart-card wide">
+                <h2>Pendapatan &amp; Jumlah Transaksi per Hari</h2>
+                <p class="sub">Dikelompokkan berdasarkan tanggal masuk. Pendapatan hanya dari transaksi yang sudah selesai.</p>
+                <div class="chart-box"><canvas id="chartHari"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h2>Komposisi Jenis Kendaraan</h2>
+                <p class="sub">Jumlah transaksi per jenis kendaraan.</p>
+                <div class="chart-box"><canvas id="chartJenis"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h2>Transaksi per Area Parkir</h2>
+                <p class="sub">Jumlah transaksi di tiap area.</p>
+                <div class="chart-box"><canvas id="chartArea"></canvas></div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <table>
             <thead>
                 <tr>
@@ -587,6 +714,152 @@ $dicetakOleh = e($_SESSION['nama'] ?? $_SESSION['username'] ?? 'Owner');
 
     </div>
 </div>
+
+<?php if (!empty($rows)): ?>
+<script>
+(function () {
+    if (typeof Chart === 'undefined') { return; } // CDN gagal dimuat: halaman tetap berfungsi tanpa grafik
+
+    var data = <?= json_encode($chartData, $jsonFlags) ?>;
+
+    var NAVY = '#123C5D', TEAL = '#2F8F82', MUTED = '#5B6B7A', LINE = '#E1E7EC';
+    var PALETTE = [TEAL, NAVY, '#E0A03A', '#8A5CB8', '#C4574B', '#6C8EAD'];
+
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = MUTED;
+
+    function fmtRupiah(v) {
+        return 'Rp ' + Number(v).toLocaleString('id-ID');
+    }
+
+    // 1. Pendapatan (bar) + jumlah transaksi (garis) per hari
+    var elHari = document.getElementById('chartHari');
+    if (elHari) {
+        new Chart(elHari, {
+            data: {
+                labels: data.hari.labels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Pendapatan',
+                        data: data.hari.pendapatan,
+                        backgroundColor: TEAL,
+                        borderRadius: 4,
+                        yAxisID: 'y',
+                        order: 2
+                    },
+                    {
+                        type: 'line',
+                        label: 'Jumlah Transaksi',
+                        data: data.hari.transaksi,
+                        borderColor: NAVY,
+                        backgroundColor: NAVY,
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        yAxisID: 'y1',
+                        order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': ' +
+                                    (ctx.dataset.yAxisID === 'y' ? fmtRupiah(ctx.parsed.y) : ctx.parsed.y);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        position: 'left',
+                        grid: { color: LINE },
+                        ticks: { callback: function (v) { return fmtRupiah(v); } }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+
+    // 2. Komposisi jenis kendaraan
+    var elJenis = document.getElementById('chartJenis');
+    if (elJenis) {
+        new Chart(elJenis, {
+            type: 'doughnut',
+            data: {
+                labels: data.jenis.labels,
+                datasets: [{
+                    data: data.jenis.values,
+                    backgroundColor: PALETTE.slice(0, Math.max(data.jenis.values.length, 1)),
+                    borderColor: '#fff',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                var total = ctx.dataset.data.reduce(function (a, b) { return a + b; }, 0);
+                                var pct = total ? Math.round(ctx.parsed / total * 100) : 0;
+                                return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 3. Transaksi per area parkir
+    var elArea = document.getElementById('chartArea');
+    if (elArea) {
+        new Chart(elArea, {
+            type: 'bar',
+            data: {
+                labels: data.area.labels,
+                datasets: [{
+                    label: 'Jumlah Transaksi',
+                    data: data.area.values,
+                    backgroundColor: NAVY,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: LINE }, ticks: { precision: 0 } },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+    }
+})();
+</script>
+<?php endif; ?>
 
 </body>
 </html>

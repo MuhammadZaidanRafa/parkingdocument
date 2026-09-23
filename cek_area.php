@@ -1,628 +1,1459 @@
 <?php
-session_start();
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
 require_once 'db.php';
 
-// Memastikan variabel koneksi valid
-if (!isset($koneksi)) {
-    if (isset($conn)) {
-        $koneksi = $conn;
-    } elseif (isset($mysqli)) {
-        $koneksi = $mysqli;
-    }
+if (!isset($conn) || !($conn instanceof mysqli)) {
+    die("Koneksi database tidak ditemukan. Pastikan db.php menggunakan variabel \$conn.");
 }
 
-if (empty($koneksi)) {
-    die('Variabel koneksi tidak ditemukan di db.php.');
+/*
+|--------------------------------------------------------------------------
+| KONFIGURASI LANDING PAGE
+|--------------------------------------------------------------------------
+*/
+$landingPage = 'index.php';
+
+
+/*
+|--------------------------------------------------------------------------
+| BUAT TABEL ULASAN JIKA BELUM ADA
+|--------------------------------------------------------------------------
+*/
+$sqlCreateUlasan = "
+    CREATE TABLE IF NOT EXISTS tb_ulasan (
+        id_ulasan INT(11) AUTO_INCREMENT PRIMARY KEY,
+        id_area INT(11) NOT NULL,
+        id_user INT(11) NULL,
+        nama_pengulas VARCHAR(100) NOT NULL,
+        rating DECIMAL(2,1) NOT NULL DEFAULT 5.0,
+        komentar TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+        INDEX idx_ulasan_area (id_area),
+
+        CONSTRAINT fk_ulasan_area
+            FOREIGN KEY (id_area)
+            REFERENCES tb_area_parkir(id_area)
+            ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+";
+
+$conn->query($sqlCreateUlasan);
+
+
+/*
+|--------------------------------------------------------------------------
+| SINKRONISASI SEMUA AREA
+|--------------------------------------------------------------------------
+| terisi selalu dihitung dari transaksi aktif.
+|
+| Kendaraan aktif:
+| status = 'masuk'
+| DAN waktu_keluar IS NULL
+|--------------------------------------------------------------------------
+*/
+function sinkronisasiSemuaArea(mysqli $conn): bool
+{
+    $sql = "
+        UPDATE tb_area_parkir a
+        LEFT JOIN (
+            SELECT
+                id_area,
+                COUNT(*) AS jumlah_aktif
+            FROM tb_transaksi
+            WHERE status = 'masuk'
+              AND waktu_keluar IS NULL
+              AND id_area IS NOT NULL
+            GROUP BY id_area
+        ) t
+            ON t.id_area = a.id_area
+        SET a.terisi = COALESCE(t.jumlah_aktif, 0)
+    ";
+
+    return $conn->query($sql);
 }
 
-// -------------------------------------------------------------
-// Auto-Create Tabel Ulasan Jika Belum Ada
-// -------------------------------------------------------------
-$create_table_sql = "CREATE TABLE IF NOT EXISTS tb_ulasan (
-    id_ulasan INT(11) AUTO_INCREMENT PRIMARY KEY,
-    id_area INT(11) NOT NULL,
-    id_user INT(11) NULL,
-    nama_pengulas VARCHAR(50) NOT NULL,
-    rating DECIMAL(2,1) NOT NULL DEFAULT 5.0,
-    komentar TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_area) REFERENCES tb_area_parkir(id_area) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-mysqli_query($koneksi, $create_table_sql);
 
-// -------------------------------------------------------------
-// PROSES TAMBAH ULASAN/KOMENTAR (POST)
-// -------------------------------------------------------------
-$pesan_sukses = '';
-$pesan_error  = '';
+/*
+|--------------------------------------------------------------------------
+| SINKRONKAN TERISI
+|--------------------------------------------------------------------------
+*/
+sinkronisasiSemuaArea($conn);
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ulasan'])) {
-    $id_area       = (int)($_POST['id_area'] ?? 0);
-    $rating_input  = (float)($_POST['rating'] ?? 5.0);
-    $komentar_input= trim($_POST['komentar'] ?? '');
-    
-    // Tentukan nama pengulas
-    $id_user = null;
-    $nama_pengulas = 'Tamu';
-    if (isset($_SESSION['nama_lengkap'])) {
-        $nama_pengulas = $_SESSION['nama_lengkap'];
-        $id_user = $_SESSION['id_user'] ?? ($_SESSION['user_id'] ?? null);
-    } elseif (!empty($_POST['nama_pengulas'])) {
-        $nama_pengulas = trim($_POST['nama_pengulas']);
-    }
 
-    if ($id_area > 0 && !empty($komentar_input)) {
-        // Simpan komentar ke tb_ulasan
-        $stmt = $koneksi->prepare("INSERT INTO tb_ulasan (id_area, id_user, nama_pengulas, rating, komentar) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("iisds", $id_area, $id_user, $nama_pengulas, $rating_input, $komentar_input);
-        
-        if ($stmt->execute()) {
-            // Hitung ulang rata-rata rating untuk tb_area_parkir
-            $stmt_avg = $koneksi->prepare("SELECT AVG(rating) as avg_rating FROM tb_ulasan WHERE id_area = ?");
-            $stmt_avg->bind_param("i", $id_area);
-            $stmt_avg->execute();
-            $res_avg = $stmt_avg->get_result()->fetch_assoc();
-            $new_avg = round($res_avg['avg_rating'] ?? $rating_input, 1);
+/*
+|--------------------------------------------------------------------------
+| PESAN
+|--------------------------------------------------------------------------
+*/
+$pesan = "";
+$tipePesan = "";
 
-            // Update rating di tb_area_parkir
-            $stmt_upd = $koneksi->prepare("UPDATE tb_area_parkir SET rating = ? WHERE id_area = ?");
-            $stmt_upd->bind_param("di", $new_avg, $id_area);
-            $stmt_upd->execute();
 
-            $pesan_sukses = "Terima kasih! Ulasan dan rating Anda telah ditambahkan.";
-        } else {
-            $pesan_error = "Gagal menyimpan ulasan: " . $koneksi->error;
-        }
+/*
+|--------------------------------------------------------------------------
+| SUBMIT ULASAN
+|--------------------------------------------------------------------------
+*/
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_POST['submit_ulasan'])
+) {
+
+    $id_area = (int) ($_POST['id_area'] ?? 0);
+    $rating = (float) ($_POST['rating'] ?? 5);
+    $komentar = trim($_POST['komentar'] ?? '');
+
+    /*
+    |----------------------------------------------------------------------
+    | NAMA PENGULAS
+    |----------------------------------------------------------------------
+    */
+    if (
+        isset($_SESSION['nama_lengkap'])
+        && $_SESSION['nama_lengkap'] !== ''
+    ) {
+
+        $nama_pengulas = trim($_SESSION['nama_lengkap']);
+
+    } elseif (
+        isset($_SESSION['nama'])
+        && $_SESSION['nama'] !== ''
+    ) {
+
+        $nama_pengulas = trim($_SESSION['nama']);
+
     } else {
-        $pesan_error = "Mohon isi komentar ulasan Anda.";
+
+        $nama_pengulas = trim(
+            $_POST['nama_pengulas'] ?? 'Pengguna'
+        );
     }
-}
 
-// -------------------------------------------------------------
-// AMBIL DATA AREA PARKIR
-// -------------------------------------------------------------
-$query  = "SELECT id_area, nama_area, kapasitas, terisi, IFNULL(rating, 0.0) as rating FROM tb_area_parkir ORDER BY nama_area ASC";
-$result = mysqli_query($koneksi, $query);
+    if ($nama_pengulas === '') {
+        $nama_pengulas = 'Pengguna';
+    }
 
-if (!$result) {
-    die('Query gagal: ' . mysqli_error($koneksi));
-}
+    /*
+    |----------------------------------------------------------------------
+    | ID USER
+    |----------------------------------------------------------------------
+    */
+    $id_user = isset($_SESSION['id_user'])
+        ? (int) $_SESSION['id_user']
+        : null;
 
-$areas = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    // Ambil 3 komentar terbaru untuk setiap area
-    $id_a = $row['id_area'];
-    $q_komentar = mysqli_query($koneksi, "SELECT nama_pengulas, rating, komentar, created_at FROM tb_ulasan WHERE id_area = '$id_a' ORDER BY created_at DESC LIMIT 3");
-    $list_komentar = [];
-    if ($q_komentar) {
-        while ($k = mysqli_fetch_assoc($q_komentar)) {
-            $list_komentar[] = $k;
+
+    /*
+    |----------------------------------------------------------------------
+    | VALIDASI
+    |----------------------------------------------------------------------
+    */
+    if ($id_area <= 0) {
+
+        $pesan = "Area parkir tidak valid.";
+        $tipePesan = "danger";
+
+    } elseif ($rating < 1 || $rating > 5) {
+
+        $pesan = "Rating harus antara 1 sampai 5.";
+        $tipePesan = "danger";
+
+    } elseif ($komentar === '') {
+
+        $pesan = "Komentar tidak boleh kosong.";
+        $tipePesan = "danger";
+
+    } elseif (mb_strlen($nama_pengulas) > 100) {
+
+        $pesan = "Nama pengulas maksimal 100 karakter.";
+        $tipePesan = "danger";
+
+    } else {
+
+        /*
+        |------------------------------------------------------------------
+        | CEK AREA
+        |------------------------------------------------------------------
+        */
+        $stmtArea = $conn->prepare("
+            SELECT id_area
+            FROM tb_area_parkir
+            WHERE id_area = ?
+            LIMIT 1
+        ");
+
+        if (!$stmtArea) {
+
+            $pesan = "Gagal memproses area.";
+            $tipePesan = "danger";
+
+        } else {
+
+            $stmtArea->bind_param("i", $id_area);
+            $stmtArea->execute();
+
+            $areaResult = $stmtArea->get_result();
+
+            if ($areaResult->num_rows === 0) {
+
+                $pesan = "Area parkir tidak ditemukan.";
+                $tipePesan = "danger";
+
+            } else {
+
+                /*
+                |----------------------------------------------------------
+                | SIMPAN ULASAN
+                |----------------------------------------------------------
+                */
+                if ($id_user === null) {
+
+                    $stmt = $conn->prepare("
+                        INSERT INTO tb_ulasan
+                        (
+                            id_area,
+                            id_user,
+                            nama_pengulas,
+                            rating,
+                            komentar
+                        )
+                        VALUES (?, NULL, ?, ?, ?)
+                    ");
+
+                    if ($stmt) {
+
+                        $stmt->bind_param(
+                            "isds",
+                            $id_area,
+                            $nama_pengulas,
+                            $rating,
+                            $komentar
+                        );
+                    }
+
+                } else {
+
+                    $stmt = $conn->prepare("
+                        INSERT INTO tb_ulasan
+                        (
+                            id_area,
+                            id_user,
+                            nama_pengulas,
+                            rating,
+                            komentar
+                        )
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
+
+                    if ($stmt) {
+
+                        $stmt->bind_param(
+                            "iisis",
+                            $id_area,
+                            $id_user,
+                            $nama_pengulas,
+                            $rating,
+                            $komentar
+                        );
+                    }
+                }
+
+                if (!isset($stmt) || !$stmt) {
+
+                    $pesan = "Gagal menyiapkan penyimpanan ulasan.";
+                    $tipePesan = "danger";
+
+                } elseif ($stmt->execute()) {
+
+                    /*
+                    |------------------------------------------------------
+                    | HITUNG RATA-RATA RATING
+                    |------------------------------------------------------
+                    */
+                    $stmtRating = $conn->prepare("
+                        SELECT COALESCE(AVG(rating), 0)
+                        FROM tb_ulasan
+                        WHERE id_area = ?
+                    ");
+
+                    if ($stmtRating) {
+
+                        $stmtRating->bind_param("i", $id_area);
+                        $stmtRating->execute();
+
+                        $ratingResult = $stmtRating->get_result();
+                        $ratingData = $ratingResult->fetch_row();
+
+                        $ratingRata = (float) ($ratingData[0] ?? 0);
+
+                        /*
+                        |--------------------------------------------------
+                        | UPDATE RATING AREA
+                        |--------------------------------------------------
+                        */
+                        $stmtUpdate = $conn->prepare("
+                            UPDATE tb_area_parkir
+                            SET rating = ?
+                            WHERE id_area = ?
+                        ");
+
+                        if ($stmtUpdate) {
+
+                            $stmtUpdate->bind_param(
+                                "di",
+                                $ratingRata,
+                                $id_area
+                            );
+
+                            $stmtUpdate->execute();
+                            $stmtUpdate->close();
+                        }
+
+                        $stmtRating->close();
+                    }
+
+                    $pesan = "Ulasan berhasil dikirim.";
+                    $tipePesan = "success";
+
+                } else {
+
+                    $pesan = "Gagal menyimpan ulasan: " . $stmt->error;
+                    $tipePesan = "danger";
+                }
+
+                if (isset($stmt) && $stmt) {
+                    $stmt->close();
+                }
+            }
+
+            $stmtArea->close();
         }
     }
-    $row['ulasan'] = $list_komentar;
-    $areas[] = $row;
 }
 
-$totalKapasitas = array_sum(array_column($areas, 'kapasitas'));
-$totalTerisi    = array_sum(array_column($areas, 'terisi'));
-$totalTersedia  = $totalKapasitas - $totalTerisi;
 
-const MAKS_SLOT_VISUAL = 40;
+/*
+|--------------------------------------------------------------------------
+| AMBIL DATA AREA
+|--------------------------------------------------------------------------
+| terisi dihitung langsung dari tb_transaksi.
+|--------------------------------------------------------------------------
+*/
+$sqlArea = "
+    SELECT
+        a.id_area,
+        a.nama_area,
+        a.kapasitas,
 
+        COUNT(t.id_parkir) AS terisi,
+
+        COALESCE(a.rating, 0.0) AS rating
+
+    FROM tb_area_parkir a
+
+    LEFT JOIN tb_transaksi t
+        ON t.id_area = a.id_area
+        AND t.status = 'masuk'
+        AND t.waktu_keluar IS NULL
+
+    GROUP BY
+        a.id_area,
+        a.nama_area,
+        a.kapasitas,
+        a.rating
+
+    ORDER BY a.nama_area ASC
+";
+
+$resultArea = $conn->query($sqlArea);
+
+if (!$resultArea) {
+    die("Gagal mengambil data area: " . $conn->error);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| TOTAL DATA
+|--------------------------------------------------------------------------
+*/
+$totalKapasitas = 0;
+$totalTerisi = 0;
+$areas = [];
+
+while ($area = $resultArea->fetch_assoc()) {
+
+    $area['id_area'] = (int) $area['id_area'];
+    $area['kapasitas'] = (int) $area['kapasitas'];
+    $area['terisi'] = (int) $area['terisi'];
+    $area['rating'] = (float) $area['rating'];
+
+    $area['tersedia'] = max(
+        $area['kapasitas'] - $area['terisi'],
+        0
+    );
+
+    $totalKapasitas += $area['kapasitas'];
+    $totalTerisi += $area['terisi'];
+
+    $areas[] = $area;
+}
+
+$totalTersedia = max(
+    $totalKapasitas - $totalTerisi,
+    0
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| AMBIL ULASAN TERBARU PER AREA
+|--------------------------------------------------------------------------
+*/
+$ulasanPerArea = [];
+
+foreach ($areas as $area) {
+
+    $id_area = (int) $area['id_area'];
+
+    $stmtUlasan = $conn->prepare("
+        SELECT
+            nama_pengulas,
+            rating,
+            komentar,
+            created_at
+        FROM tb_ulasan
+        WHERE id_area = ?
+        ORDER BY created_at DESC
+        LIMIT 3
+    ");
+
+    if (!$stmtUlasan) {
+        $ulasanPerArea[$id_area] = [];
+        continue;
+    }
+
+    $stmtUlasan->bind_param("i", $id_area);
+    $stmtUlasan->execute();
+
+    $resultUlasan = $stmtUlasan->get_result();
+
+    $ulasanPerArea[$id_area] = [];
+
+    while ($ulasan = $resultUlasan->fetch_assoc()) {
+
+        $ulasanPerArea[$id_area][] = $ulasan;
+    }
+
+    $stmtUlasan->close();
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| STATUS AREA
+|--------------------------------------------------------------------------
+*/
 function statusArea(int $kapasitas, int $terisi): array
 {
-    $sisa   = max(0, $kapasitas - $terisi);
-    $persen = $kapasitas > 0 ? round(($terisi / $kapasitas) * 100) : 0;
+    if ($kapasitas <= 0) {
 
-    if ($sisa <= 0) {
-        return ['key' => 'full', 'label' => 'PENUH', 'persen' => $persen, 'sisa' => $sisa];
+        return [
+            'text' => 'Tidak tersedia',
+            'class' => 'danger',
+            'icon' => 'bi-x-circle'
+        ];
     }
+
+    if ($terisi >= $kapasitas) {
+
+        return [
+            'text' => 'Penuh',
+            'class' => 'danger',
+            'icon' => 'bi-x-circle-fill'
+        ];
+    }
+
+    $persen = ($terisi / $kapasitas) * 100;
+
     if ($persen >= 80) {
-        return ['key' => 'warn', 'label' => 'HAMPIR PENUH', 'persen' => $persen, 'sisa' => $sisa];
+
+        return [
+            'text' => 'Hampir penuh',
+            'class' => 'warning',
+            'icon' => 'bi-exclamation-triangle-fill'
+        ];
     }
-    return ['key' => 'ok', 'label' => 'TERSEDIA', 'persen' => $persen, 'sisa' => $sisa];
+
+    return [
+        'text' => 'Tersedia',
+        'class' => 'success',
+        'icon' => 'bi-check-circle-fill'
+    ];
 }
 
-// Helper cetak ikon bintang FontAwesome
-function renderStars($rating) {
-    $html = '';
-    $rating = (float)$rating;
-    for ($i = 1; $i <= 5; $i++) {
-        if ($rating >= $i) {
-            $html .= '<i class="fa-solid fa-star text-warning"></i>';
-        } elseif ($rating >= $i - 0.5) {
-            $html .= '<i class="fa-solid fa-star-half-stroke text-warning"></i>';
-        } else {
-            $html .= '<i class="fa-regular fa-star text-muted"></i>';
-        }
-    }
-    return $html;
-}
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cek Area Parkir & Ulasan</title>
 
-<!-- Fonts & Icons -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
 
-<style>
-  :root {
-    --bg: #e9ebee;
-    --panel: #ffffff;
-    --ink: #1e2a38;
-    --ink-soft: #5b6673;
-    --line: #d8dce1;
-    --ok: #2f9e44;
-    --ok-bg: #e6f6ea;
-    --warn: #c97400;
-    --warn-bg: #fef1de;
-    --full: #d3352c;
-    --full-bg: #fbe5e3;
-    --stripe: #ffc107;
-  }
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-  * { box-sizing: border-box; }
+    <title>Status Area Parkir</title>
 
-  body {
-    margin: 0;
-    background:
-      repeating-linear-gradient(90deg, transparent 0 78px, var(--line) 78px 80px),
-      var(--bg);
-    font-family: 'Inter', sans-serif;
-    color: var(--ink);
-    padding: 28px 20px 60px;
-  }
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
 
-  .wrap { max-width: 1080px; margin: 0 auto; }
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+        rel="stylesheet"
+    >
 
-  header.page {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    border-bottom: 4px solid var(--ink);
-    padding-bottom: 16px;
-    margin-bottom: 24px;
-  }
+    <style>
 
-  .eyebrow {
-    font-family: 'Oswald', sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin: 0 0 4px;
-  }
+        * {
+            box-sizing: border-box;
+        }
 
-  h1 {
-    font-family: 'Oswald', sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    font-size: clamp(28px, 4vw, 40px);
-    margin: 0;
-  }
+        body {
+            background: #f5f7fb;
+            font-family: Arial, sans-serif;
+            color: #111827;
+        }
 
-  .updated {
-    font-size: 13px;
-    color: var(--ink-soft);
-    text-align: right;
-  }
+        .header {
+            background: linear-gradient(
+                135deg,
+                #111827,
+                #2563eb
+            );
 
-  .updated a {
-    display: inline-block;
-    margin-top: 6px;
-    font-family: 'Oswald', sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink);
-    background: var(--stripe);
-    padding: 6px 12px;
-    border-radius: 3px;
-    text-decoration: none;
-  }
+            color: white;
+            padding: 35px 20px;
+        }
 
-  .btn-kembali {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: 'Oswald', sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    text-decoration: none;
-    border: 1px solid var(--line);
-    background: var(--panel);
-    padding: 6px 14px;
-    border-radius: 3px;
-    margin-bottom: 16px;
-    transition: color 0.15s ease, border-color 0.15s ease;
-  }
+        .header-title {
+            min-width: 0;
+        }
 
-  .btn-kembali:hover {
-    color: var(--ink);
-    border-color: var(--ink);
-  }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+        }
 
-  .ringkasan {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 28px;
-  }
+        .header-actions .btn {
+            border-radius: 10px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
 
-  .ringkasan .kotak {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 14px 16px;
-  }
+        .summary-card {
+            border: 0;
+            border-radius: 18px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, .07);
+            transition: .2s;
+        }
 
-  .ringkasan .angka {
-    font-family: 'Oswald', sans-serif;
-    font-size: 30px;
-    font-weight: 600;
-    line-height: 1;
-  }
+        .summary-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .10);
+        }
 
-  .ringkasan .label {
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-soft);
-    margin-top: 4px;
-  }
+        .area-card {
+            border: 0;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, .08);
+            height: 100%;
+            transition: .2s;
+        }
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-  }
+        .area-card:hover {
+            transform: translateY(-3px);
+        }
 
-  .kartu {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 18px;
-    border-top: 5px solid var(--ink);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    animation: masuk 0.35s ease backwards;
-    display: flex;
-    flex-direction: column;
-  }
+        .area-header {
+            padding: 20px;
+            background: #111827;
+            color: white;
+        }
 
-  .kartu:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(30, 42, 56, 0.08);
-  }
+        .slot-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(45px, 1fr));
 
-  .kartu.ok    { border-top-color: var(--ok); }
-  .kartu.warn  { border-top-color: var(--warn); }
-  .kartu.full  { border-top-color: var(--full); }
+            gap: 8px;
+        }
 
-  .kartu .judul {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 6px;
-  }
+        .slot {
+            height: 42px;
+            border-radius: 9px;
 
-  .kartu h2 {
-    font-family: 'Oswald', sans-serif;
-    font-size: 19px;
-    font-weight: 600;
-    margin: 0;
-    text-transform: uppercase;
-  }
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
-  .badge {
-    font-family: 'Oswald', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    padding: 3px 9px;
-    border-radius: 3px;
-    white-space: nowrap;
-  }
+            font-size: 12px;
+            font-weight: bold;
+        }
 
-  .badge.ok   { color: var(--ok);   background: var(--ok-bg); }
-  .badge.warn { color: var(--warn); background: var(--warn-bg); }
-  .badge.full { color: var(--full); background: var(--full-bg); }
+        .slot-empty {
+            background: #dcfce7;
+            color: #166534;
+        }
 
-  .rating-box {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin-bottom: 12px;
-  }
+        .slot-full {
+            background: #fee2e2;
+            color: #991b1b;
+        }
 
-  .rating-box .score {
-    font-weight: 700;
-    color: var(--ink);
-  }
+        .review {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
 
-  .slot-grid {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 3px;
-    margin: 12px 0;
-  }
+        .stars {
+            color: #f59e0b;
+        }
 
-  .slot {
-    aspect-ratio: 2 / 3;
-    border-radius: 2px;
-    border: 1.5px solid var(--line);
-  }
+        .stat-number {
+            font-size: 30px;
+            font-weight: 800;
+        }
 
-  .slot.terisi.ok   { background: var(--ok);   border-color: var(--ok); }
-  .slot.terisi.warn { background: var(--warn); border-color: var(--warn); }
-  .slot.terisi.full { background: var(--full); border-color: var(--full); }
+        .progress {
+            background: #e5e7eb;
+            border-radius: 20px;
+            overflow: hidden;
+        }
 
-  .bar-track {
-    height: 14px;
-    border-radius: 7px;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    overflow: hidden;
-    margin: 14px 0;
-  }
+        .progress-bar {
+            transition: width .5s ease;
+        }
 
-  .bar-isi {
-    height: 100%;
-    border-radius: 7px 0 0 7px;
-  }
+        .modal-content {
+            border: 0;
+            border-radius: 18px;
+            overflow: hidden;
+        }
 
-  .bar-isi.ok   { background: var(--ok); }
-  .bar-isi.warn { background: var(--warn); }
-  .bar-isi.full { background: var(--full); }
+        .modal-header {
+            background: #111827;
+            color: white;
+        }
 
-  .statistik {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: var(--ink-soft);
-    border-top: 1px solid var(--line);
-    padding-top: 10px;
-    margin-bottom: 12px;
-  }
+        .modal-header .btn-close {
+            filter: invert(1);
+        }
 
-  .statistik strong {
-    display: block;
-    font-family: 'Oswald', sans-serif;
-    font-size: 17px;
-    color: var(--ink);
-    font-weight: 600;
-  }
+        @media (max-width: 768px) {
 
-  .section-komentar {
-    margin-top: auto;
-    background: #f8f9fa;
-    border-radius: 6px;
-    padding: 10px;
-    border: 1px solid #e9ecef;
-  }
+            .header {
+                padding: 28px 15px;
+            }
 
-  .komentar-item {
-    font-size: 12px;
-    border-bottom: 1px dashed #dee2e6;
-    padding-bottom: 6px;
-    margin-bottom: 6px;
-  }
-  .komentar-item:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-    margin-bottom: 0;
-  }
+            .header > .container > .d-flex {
+                align-items: flex-start !important;
+            }
 
-  .kosong {
-    background: var(--panel);
-    border: 1px dashed var(--line);
-    border-radius: 8px;
-    padding: 40px 20px;
-    text-align: center;
-    color: var(--ink-soft);
-  }
+            .header-actions {
+                flex-direction: column;
+            }
 
-  @keyframes masuk {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
+            .header-actions .btn {
+                width: 100%;
+            }
 
-  @media (prefers-reduced-motion: reduce) {
-    .kartu { animation: none; transition: none; }
-  }
+        }
 
-  @media (max-width: 480px) {
-    .ringkasan { grid-template-columns: 1fr; }
-    .updated { text-align: left; }
-  }
-</style>
+        @media (max-width: 576px) {
+
+            .header {
+                padding: 25px 15px;
+            }
+
+            .header > .container > .d-flex {
+                flex-direction: column;
+            }
+
+            .header-title {
+                width: 100%;
+            }
+
+            .header-actions {
+                width: 100%;
+                flex-direction: row;
+            }
+
+            .header-actions .btn {
+                flex: 1;
+                font-size: 13px;
+            }
+
+            .stat-number {
+                font-size: 24px;
+            }
+
+            .area-header {
+                padding: 16px;
+            }
+
+        }
+
+    </style>
+
 </head>
+
 <body>
-<div class="wrap">
 
-  <a href="index.php" class="btn-kembali">&larr; Kembali ke Beranda</a>
 
-  <header class="page">
-    <div>
-      <p class="eyebrow">Sistem Parkir</p>
-      <h1>Status & Rating Area Parkir</h1>
-    </div>
-    <div class="updated">
-      Terakhir diperbarui: <?= date('d M Y, H:i:s') ?>
-      <br>
-      <a href="cek_area.php">Refresh</a>
-    </div>
-  </header>
+<!-- =========================================================
+     HEADER
+========================================================= -->
 
-  <?php if (!empty($pesan_sukses)): ?>
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-      <i class="fa-solid fa-circle-check me-1"></i> <?= $pesan_sukses ?>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-  <?php endif; ?>
+<div class="header">
 
-  <?php if (!empty($pesan_error)): ?>
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-      <i class="fa-solid fa-circle-exclamation me-1"></i> <?= $pesan_error ?>
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-  <?php endif; ?>
+    <div class="container">
 
-  <?php if (empty($areas)): ?>
+        <div class="d-flex justify-content-between align-items-center gap-3">
 
-    <div class="kosong">Belum ada data area parkir. Tambahkan data pada tabel <code>tb_area_parkir</code> untuk mulai memantau status.</div>
+            <div class="header-title">
 
-  <?php else: ?>
+                <h2 class="fw-bold mb-1">
 
-    <div class="ringkasan">
-      <div class="kotak">
-        <div class="angka"><?= $totalKapasitas ?></div>
-        <div class="label">Total Kapasitas</div>
-      </div>
-      <div class="kotak">
-        <div class="angka"><?= $totalTerisi ?></div>
-        <div class="label">Total Terisi</div>
-      </div>
-      <div class="kotak">
-        <div class="angka"><?= max(0, $totalTersedia) ?></div>
-        <div class="label">Total Tersedia</div>
-      </div>
-    </div>
+                    <i class="bi bi-p-square-fill"></i>
 
-    <div class="grid">
-      <?php foreach ($areas as $i => $area):
-          $kap    = (int) $area['kapasitas'];
-          $isi    = (int) $area['terisi'];
-          $st     = statusArea($kap, $isi);
-          $delay  = $i * 0.04;
-          $rating = (float) $area['rating'];
-      ?>
-      <div class="kartu <?= $st['key'] ?>" style="animation-delay: <?= $delay ?>s">
-        <div class="judul">
-          <h2><?= htmlspecialchars($area['nama_area']) ?></h2>
-          <span class="badge <?= $st['key'] ?>"><?= $st['label'] ?></span>
+                    Status Area Parkir
+
+                </h2>
+
+                <p class="mb-0 opacity-75">
+
+                    Informasi kapasitas parkir secara real-time
+
+                </p>
+
+            </div>
+
+
+            <!-- =================================================
+                 TOMBOL
+            ================================================== -->
+
+            <div class="header-actions">
+
+                <!-- LANDING PAGE -->
+
+                <a
+                    href="<?= htmlspecialchars($landingPage) ?>"
+                    class="btn btn-light"
+                >
+
+                    <i class="bi bi-house-door-fill"></i>
+
+                    Landing Page
+
+                </a>
+
+
+                <!-- REFRESH -->
+
+                <a
+                    href="cek_area.php"
+                    class="btn btn-light"
+                >
+
+                    <i class="bi bi-arrow-clockwise"></i>
+
+                    Refresh
+
+                </a>
+
+            </div>
+
         </div>
 
-        <!-- Rating & Bintang -->
-        <div class="rating-box">
-          <div class="stars"><?= renderStars($rating) ?></div>
-          <span class="score"><?= number_format($rating, 1) ?></span>
-          <span class="text-muted">/ 5.0</span>
-        </div>
-
-        <?php if ($kap > 0 && $kap <= MAKS_SLOT_VISUAL): ?>
-          <div class="slot-grid">
-            <?php for ($s = 1; $s <= $kap; $s++): ?>
-              <div class="slot <?= $s <= $isi ? 'terisi ' . $st['key'] : '' ?>"></div>
-            <?php endfor; ?>
-          </div>
-        <?php else: ?>
-          <div class="bar-track">
-            <div class="bar-isi <?= $st['key'] ?>" style="width: <?= min(100, $st['persen']) ?>%"></div>
-          </div>
-        <?php endif; ?>
-
-        <div class="statistik">
-          <div><strong><?= $kap ?></strong>Kapasitas</div>
-          <div><strong><?= $isi ?></strong>Terisi</div>
-          <div><strong><?= max(0, $kap - $isi) ?></strong>Tersedia</div>
-        </div>
-
-        <!-- Section Komentar & Ulasan Terbaru -->
-        <div class="section-komentar">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="fw-bold text-secondary" style="font-size: 12px;"><i class="fa-solid fa-comments me-1"></i> Ulasan Terbaru</span>
-            <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 11px;" data-bs-toggle="modal" data-bs-target="#modalUlasan<?= $area['id_area'] ?>">
-              + Beri Ulasan
-            </button>
-          </div>
-
-          <?php if (!empty($area['ulasan'])): ?>
-            <?php foreach ($area['ulasan'] as $u): ?>
-              <div class="komentar-item">
-                <div class="d-flex justify-content-between">
-                  <strong class="text-dark"><?= htmlspecialchars($u['nama_pengulas']) ?></strong>
-                  <span class="text-warning"><?= renderStars($u['rating']) ?></span>
-                </div>
-                <p class="mb-0 text-muted" style="line-height: 1.3;"><?= htmlspecialchars($u['komentar']) ?></p>
-              </div>
-            <?php endforeach; ?>
-          <?php else: ?>
-            <div class="text-center text-muted py-2" style="font-size: 11px;">Belum ada ulasan untuk area ini.</div>
-          <?php endif; ?>
-        </div>
-
-      </div>
-
-      <!-- Modal Tambah Ulasan -->
-      <div class="modal fade" id="modalUlasan<?= $area['id_area'] ?>" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-          <div class="modal-content">
-            <form method="POST" action="">
-              <div class="modal-header">
-                <h5 class="modal-title font-sans fw-bold">Ulasan untuk <?= htmlspecialchars($area['nama_area']) ?></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <div class="modal-body">
-                <input type="hidden" name="id_area" value="<?= $area['id_area'] ?>">
-                
-                <?php if (!isset($_SESSION['nama_lengkap'])): ?>
-                  <div class="mb-3">
-                    <label class="form-label small font-semibold">Nama Anda</label>
-                    <input type="text" name="nama_pengulas" class="form-control form-control-sm" placeholder="Masukkan nama..." required>
-                  </div>
-                <?php else: ?>
-                  <p class="small text-muted mb-3">Mengulas sebagai: <strong><?= htmlspecialchars($_SESSION['nama_lengkap']) ?></strong></p>
-                <?php endif; ?>
-
-                <div class="mb-3">
-                  <label class="form-label small font-semibold">Rating Bintang</label>
-                  <select name="rating" class="form-select form-select-sm">
-                    <option value="5.0">⭐⭐⭐⭐⭐ (5 - Sangat Bagus)</option>
-                    <option value="4.0">⭐⭐⭐⭐ (4 - Bagus)</option>
-                    <option value="3.0">⭐⭐⭐ (3 - Cukup)</option>
-                    <option value="2.0">⭐⭐ (2 - Kurang)</option>
-                    <option value="1.0">⭐ (1 - Buruk)</option>
-                  </select>
-                </div>
-
-                <div class="mb-3">
-                  <label class="form-label small font-semibold">Komentar / Pengalaman Parkir</label>
-                  <textarea name="komentar" class="form-control form-control-sm" rows="3" placeholder="Tuliskan ulasan Anda..." required></textarea>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="submit" name="submit_ulasan" class="btn btn-sm btn-primary">Kirim Ulasan</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <?php endforeach; ?>
     </div>
-
-  <?php endif; ?>
 
 </div>
 
-<!-- Bootstrap 5 JS Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- =========================================================
+     CONTENT
+========================================================= -->
+
+<div class="container py-4">
+
+
+    <!-- =====================================================
+         PESAN
+    ====================================================== -->
+
+    <?php if ($pesan !== ''): ?>
+
+        <div
+            class="alert alert-<?= htmlspecialchars($tipePesan) ?> alert-dismissible fade show"
+            role="alert"
+        >
+
+            <?= htmlspecialchars($pesan) ?>
+
+            <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="alert"
+            ></button>
+
+        </div>
+
+    <?php endif; ?>
+
+
+    <!-- =====================================================
+         SUMMARY
+    ====================================================== -->
+
+    <div class="row g-3 mb-4">
+
+
+        <!-- TOTAL KAPASITAS -->
+
+        <div class="col-md-4">
+
+            <div class="card summary-card">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+
+                        Total Kapasitas
+
+                    </small>
+
+                    <div class="stat-number">
+
+                        <?= $totalKapasitas ?>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- SEDANG TERISI -->
+
+        <div class="col-md-4">
+
+            <div class="card summary-card">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+
+                        Sedang Terisi
+
+                    </small>
+
+                    <div class="stat-number">
+
+                        <?= $totalTerisi ?>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- TERSEDIA -->
+
+        <div class="col-md-4">
+
+            <div class="card summary-card">
+
+                <div class="card-body">
+
+                    <small class="text-muted">
+
+                        Slot Tersedia
+
+                    </small>
+
+                    <div class="stat-number text-success">
+
+                        <?= $totalTersedia ?>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         AREA
+    ====================================================== -->
+
+    <div class="row g-4">
+
+        <?php foreach ($areas as $area): ?>
+
+            <?php
+
+            $status = statusArea(
+                $area['kapasitas'],
+                $area['terisi']
+            );
+
+            $persen = $area['kapasitas'] > 0
+
+                ? min(
+                    ($area['terisi'] / $area['kapasitas']) * 100,
+                    100
+                )
+
+                : 0;
+
+            ?>
+
+            <div class="col-lg-6">
+
+                <div class="card area-card">
+
+
+                    <!-- =========================================
+                         AREA HEADER
+                    ========================================== -->
+
+                    <div class="area-header">
+
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+
+                            <div>
+
+                                <h4 class="mb-1 fw-bold">
+
+                                    <?= htmlspecialchars(
+                                        $area['nama_area']
+                                    ) ?>
+
+                                </h4>
+
+                                <small>
+
+                                    Kapasitas
+                                    <?= $area['kapasitas'] ?>
+                                    kendaraan
+
+                                </small>
+
+                            </div>
+
+
+                            <span
+                                class="badge bg-<?= $status['class'] ?> p-2"
+                            >
+
+                                <i
+                                    class="bi <?= $status['icon'] ?>"
+                                ></i>
+
+                                <?= $status['text'] ?>
+
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- =========================================
+                         AREA BODY
+                    ========================================== -->
+
+                    <div class="card-body">
+
+
+                        <!-- STATISTIK AREA -->
+
+                        <div class="row text-center mb-4">
+
+                            <div class="col-4">
+
+                                <div class="fw-bold fs-4">
+
+                                    <?= $area['kapasitas'] ?>
+
+                                </div>
+
+                                <small class="text-muted">
+
+                                    Kapasitas
+
+                                </small>
+
+                            </div>
+
+
+                            <div class="col-4">
+
+                                <div class="fw-bold fs-4 text-danger">
+
+                                    <?= $area['terisi'] ?>
+
+                                </div>
+
+                                <small class="text-muted">
+
+                                    Terisi
+
+                                </small>
+
+                            </div>
+
+
+                            <div class="col-4">
+
+                                <div class="fw-bold fs-4 text-success">
+
+                                    <?= $area['tersedia'] ?>
+
+                                </div>
+
+                                <small class="text-muted">
+
+                                    Tersedia
+
+                                </small>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- PROGRESS -->
+
+                        <div
+                            class="progress mb-4"
+                            style="height:10px;"
+                        >
+
+                            <div
+                                class="progress-bar bg-<?= $status['class'] ?>"
+                                style="width: <?= $persen ?>%"
+                            ></div>
+
+                        </div>
+
+
+                        <!-- =====================================
+                             SLOT
+                        ====================================== -->
+
+                        <?php
+
+                        $jumlahSlot = min(
+                            max($area['kapasitas'], 1),
+                            40
+                        );
+
+                        ?>
+
+                        <?php if ($area['kapasitas'] <= 40): ?>
+
+                            <h6 class="fw-bold mb-3">
+
+                                Status Slot
+
+                            </h6>
+
+                            <div class="slot-grid mb-4">
+
+                                <?php for (
+                                    $i = 1;
+                                    $i <= $jumlahSlot;
+                                    $i++
+                                ): ?>
+
+                                    <?php
+
+                                    $terisiSlot =
+                                        $i <= $area['terisi'];
+
+                                    ?>
+
+                                    <div
+                                        class="slot <?= $terisiSlot
+                                            ? 'slot-full'
+                                            : 'slot-empty' ?>"
+                                    >
+
+                                        <?= $i ?>
+
+                                    </div>
+
+                                <?php endfor; ?>
+
+                            </div>
+
+                        <?php endif; ?>
+
+
+                        <!-- =====================================
+                             ULASAN
+                        ====================================== -->
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+
+                            <h6 class="fw-bold mb-0">
+
+                                Ulasan
+
+                            </h6>
+
+                            <span class="stars">
+
+                                <?php
+
+                                $ratingBulat = (int) round(
+                                    $area['rating']
+                                );
+
+                                for (
+                                    $i = 1;
+                                    $i <= 5;
+                                    $i++
+                                ):
+
+                                ?>
+
+                                    <i
+                                        class="bi <?= $i <= $ratingBulat
+                                            ? 'bi-star-fill'
+                                            : 'bi-star' ?>"
+                                    ></i>
+
+                                <?php endfor; ?>
+
+                                <small class="text-muted ms-1">
+
+                                    <?= number_format(
+                                        $area['rating'],
+                                        1
+                                    ) ?>
+
+                                </small>
+
+                            </span>
+
+                        </div>
+
+
+                        <!-- ULASAN TERBARU -->
+
+                        <?php if (
+                            !empty(
+                                $ulasanPerArea[$area['id_area']]
+                            )
+                        ): ?>
+
+                            <?php foreach (
+                                $ulasanPerArea[$area['id_area']]
+                                as $ulasan
+                            ): ?>
+
+                                <div class="review">
+
+                                    <div class="d-flex justify-content-between gap-2">
+
+                                        <strong>
+
+                                            <?= htmlspecialchars(
+                                                $ulasan['nama_pengulas']
+                                            ) ?>
+
+                                        </strong>
+
+                                        <span class="stars">
+
+                                            <?= str_repeat(
+                                                '★',
+                                                (int) round(
+                                                    $ulasan['rating']
+                                                )
+                                            ) ?>
+
+                                        </span>
+
+                                    </div>
+
+                                    <div class="small text-muted mt-1">
+
+                                        <?= htmlspecialchars(
+                                            $ulasan['komentar']
+                                        ) ?>
+
+                                    </div>
+
+                                </div>
+
+                            <?php endforeach; ?>
+
+                        <?php else: ?>
+
+                            <div class="text-muted small mb-3">
+
+                                Belum ada ulasan.
+
+                            </div>
+
+                        <?php endif; ?>
+
+
+                        <!-- TOMBOL ULASAN -->
+
+                        <button
+                            class="btn btn-primary w-100"
+                            data-bs-toggle="modal"
+                            data-bs-target="#ulasanModal<?= $area['id_area'] ?>"
+                        >
+
+                            <i class="bi bi-chat-square-text"></i>
+
+                            Beri Ulasan
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 MODAL ULASAN
+            ================================================== -->
+
+            <div
+                class="modal fade"
+                id="ulasanModal<?= $area['id_area'] ?>"
+                tabindex="-1"
+                aria-hidden="true"
+            >
+
+                <div class="modal-dialog">
+
+                    <div class="modal-content">
+
+                        <form method="POST">
+
+                            <div class="modal-header">
+
+                                <h5 class="modal-title">
+
+                                    Ulasan
+                                    <?= htmlspecialchars(
+                                        $area['nama_area']
+                                    ) ?>
+
+                                </h5>
+
+                                <button
+                                    type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="modal"
+                                ></button>
+
+                            </div>
+
+
+                            <div class="modal-body">
+
+                                <input
+                                    type="hidden"
+                                    name="id_area"
+                                    value="<?= $area['id_area'] ?>"
+                                >
+
+
+                                <!-- NAMA JIKA BELUM LOGIN -->
+
+                                <?php if (
+                                    !isset($_SESSION['id_user'])
+                                ): ?>
+
+                                    <div class="mb-3">
+
+                                        <label class="form-label">
+
+                                            Nama
+
+                                        </label>
+
+                                        <input
+                                            type="text"
+                                            name="nama_pengulas"
+                                            class="form-control"
+                                            maxlength="100"
+                                            required
+                                        >
+
+                                    </div>
+
+                                <?php endif; ?>
+
+
+                                <!-- RATING -->
+
+                                <div class="mb-3">
+
+                                    <label class="form-label">
+
+                                        Rating
+
+                                    </label>
+
+                                    <select
+                                        name="rating"
+                                        class="form-select"
+                                        required
+                                    >
+
+                                        <option value="5">
+
+                                            ★★★★★ - Sangat Baik
+
+                                        </option>
+
+                                        <option value="4">
+
+                                            ★★★★☆ - Baik
+
+                                        </option>
+
+                                        <option value="3">
+
+                                            ★★★☆☆ - Cukup
+
+                                        </option>
+
+                                        <option value="2">
+
+                                            ★★☆☆☆ - Kurang
+
+                                        </option>
+
+                                        <option value="1">
+
+                                            ★☆☆☆☆ - Buruk
+
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+
+                                <!-- KOMENTAR -->
+
+                                <div class="mb-3">
+
+                                    <label class="form-label">
+
+                                        Komentar
+
+                                    </label>
+
+                                    <textarea
+                                        name="komentar"
+                                        class="form-control"
+                                        rows="4"
+                                        maxlength="1000"
+                                        required
+                                    ></textarea>
+
+                                </div>
+
+                            </div>
+
+
+                            <div class="modal-footer">
+
+                                <button
+                                    type="button"
+                                    class="btn btn-secondary"
+                                    data-bs-dismiss="modal"
+                                >
+
+                                    Batal
+
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    name="submit_ulasan"
+                                    class="btn btn-primary"
+                                >
+
+                                    <i class="bi bi-send"></i>
+
+                                    Kirim Ulasan
+
+                                </button>
+
+                            </div>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        <?php endforeach; ?>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     BOOTSTRAP JS
+========================================================= -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+></script>
+
 </body>
+
 </html>

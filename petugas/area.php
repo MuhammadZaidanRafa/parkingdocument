@@ -10,12 +10,12 @@ if (!isset($_SESSION['id_user'])) {
 }
 
 // ================= CEK ROLE =================
-if ($_SESSION['role'] !== "admin") {
+if ($_SESSION['role'] !== "petugas") {
     die("Akses ditolak!");
 }
 
-$nama = $_SESSION['nama_lengkap'] ?? 'Admin';
-$role = $_SESSION['role'] ?? 'admin';
+$nama = $_SESSION['nama_lengkap'] ?? 'Petugas';
+$role = $_SESSION['role'] ?? 'petugas';
 
 // ================= TAMBAH (AREA REGULER) =================
 if (isset($_POST['tambah'])) {
@@ -172,7 +172,7 @@ if (isset($_POST['update_karyawan'])) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Area Parkir - E-Parkir Admin</title>
+<title>Area Parkir - E-Parkir Petugas</title>
 
 <style>
 
@@ -602,7 +602,7 @@ table tr:hover td {
 <aside class="sidebar">
 
     <div class="brand">
-        🅿️ E-Parkir Admin
+        🅿️ E-Parkir Petugas
     </div>
 
     <div class="user-info">
@@ -624,17 +624,11 @@ table tr:hover td {
             </a>
         </li>
 
-        <li>
-            <a href="user.php">
-                <span>👤</span>
-                Kelola User
-            </a>
-        </li>
 
         <li>
-            <a href="tarif.php">
-                <span>💰</span>
-                Kelola Tarif
+            <a href="transaksi.php">
+                <span>🎫</span>
+                Transaksi Parkir
             </a>
         </li>
 

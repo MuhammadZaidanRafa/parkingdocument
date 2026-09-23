@@ -1,4 +1,6 @@
+
 <?php
+
 session_start();
 require_once "db.php";
 
@@ -19,12 +21,14 @@ if ($role !== 'pengguna') {
 
 $inisial = strtoupper(substr($nama, 0, 1));
 ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Pengguna - Parkir</title>
+
     <style>
         * {
             margin: 0;
@@ -245,6 +249,21 @@ $inisial = strtoupper(substr($nama, 0, 1));
             transform: translateY(-5px);
         }
 
+        /* Footer Hak Cipta */
+        .copyright-footer {
+            text-align: center;
+            padding: 18px 20px;
+            margin: 10px 0 25px;
+            color: #64748b;
+            font-size: 13px;
+            border-top: 1px solid #e5e7eb;
+            line-height: 1.7;
+        }
+
+        .copyright-footer strong {
+            color: #334155;
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 992px) {
             .sidebar {
@@ -290,72 +309,108 @@ $inisial = strtoupper(substr($nama, 0, 1));
         }
     </style>
 </head>
+
 <body>
 
     <div class="wrapper">
 
         <!-- SIDEBAR -->
         <aside class="sidebar" id="sidebar">
+
             <div class="sidebar-header">
                 <h2>🅿️ Aplikasi Parkir</h2>
+
                 <div class="user-info">
                     <div class="avatar"><?php echo htmlspecialchars($inisial); ?></div>
+
                     <div>
-                        <p class="user-name"><?php echo htmlspecialchars($nama); ?></p>
-                        <span class="user-role"><?php echo strtoupper(htmlspecialchars($role)); ?></span>
+                        <p class="user-name">
+                            <?php echo htmlspecialchars($nama); ?>
+                        </p>
+
+                        <span class="user-role">
+                            <?php echo strtoupper(htmlspecialchars($role)); ?>
+                        </span>
                     </div>
                 </div>
             </div>
 
             <nav class="sidebar-menu">
+
                 <a href="dashboard.php" class="nav-link active">
                     <span class="icon">📊</span> Dashboard
                 </a>
+
                 <a href="pengguna/riwayat.php" class="nav-link">
                     <span class="icon">🕒</span> Riwayat Parkir
                 </a>
+
                 <a href="pengguna/kendaraan_saya.php" class="nav-link">
                     <span class="icon">🚗</span> Kendaraan Saya
                 </a>
+
                 <a href="pengguna/pesan_tempat.php" class="nav-link">
                     <span class="icon">🅿️</span> Pesan Tempat
                 </a>
+
                 <a href="pengguna/help.php" class="nav-link">
                     <span class="icon">❓</span> Bantuan
                 </a>
+
                 <a href="pengguna/profil.php" class="nav-link">
                     <span class="icon">👤</span> Profil
                 </a>
+
             </nav>
 
             <div class="sidebar-footer">
+
                 <a href="index.php" class="nav-link">
                     <span class="icon">🏠</span> Landing Page
                 </a>
+
                 <a href="logout.php" class="nav-link logout-link">
                     <span class="icon">🚪</span> Logout
                 </a>
+
             </div>
+
         </aside>
 
         <div class="overlay" id="overlay"></div>
 
         <!-- MAIN CONTENT -->
         <div class="main-content">
+
             <header class="topbar">
+
                 <button class="hamburger" id="hamburgerBtn" aria-label="Buka menu">
-                    <span></span><span></span><span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
                 </button>
+
                 <h2>Dashboard Pengguna</h2>
+
             </header>
 
             <div class="container">
+
                 <div class="card">
-                    <h3>Selamat datang, <?php echo htmlspecialchars($nama); ?> 👋</h3>
-                    <p>Silakan pilih menu melalui sidebar atau kartu di bawah ini.</p>
+
+                    <h3>
+                        Selamat datang,
+                        <?php echo htmlspecialchars($nama); ?> 👋
+                    </h3>
+
+                    <p>
+                        Silakan pilih menu melalui sidebar atau kartu di bawah ini.
+                    </p>
+
                 </div>
 
                 <div class="menu">
+
                     <a href="pengguna/riwayat.php" class="box">
                         <h3>🕒 Riwayat Parkir</h3>
                         <p>Lihat Riwayat Parkir Anda</p>
@@ -380,8 +435,18 @@ $inisial = strtoupper(substr($nama, 0, 1));
                         <h3>👤 Profil</h3>
                         <p>Kelola Profil Akun</p>
                     </a>
+
                 </div>
+
             </div>
+
+            <footer class="copyright-footer">
+                © 2026 E-Parkir — Panel Pengguna<br>
+                Dikembangkan oleh
+                <strong>Muhammad Zaidan Rafa — SMK Negeri 1 Sanden</strong><br>
+                <span>All Rights Reserved.</span>
+            </footer>
+
         </div>
 
     </div>

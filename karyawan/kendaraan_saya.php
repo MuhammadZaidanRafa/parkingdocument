@@ -6,7 +6,7 @@ require '../db.php';
 
 /* =====================================================
    CEK LOGIN
-   ===================================================== */
+===================================================== */
 
 if (!isset($_SESSION['id_user'])) {
     header("Location: ../login_pengguna.php");
@@ -15,33 +15,25 @@ if (!isset($_SESSION['id_user'])) {
 
 /* =====================================================
    CEK ROLE
-   ===================================================== */
+===================================================== */
 
-if (($_SESSION['role'] ?? '') !== 'pengguna') {
+if (($_SESSION['role'] ?? '') !== 'karyawan') {
     die("Akses ditolak.");
 }
 
 /* =====================================================
    DATA USER
-   ===================================================== */
+===================================================== */
 
 $id_user = (int) $_SESSION['id_user'];
-$nama = $_SESSION['nama_lengkap'] ?? 'Pengguna';
-$role = $_SESSION['role'] ?? 'pengguna';
+$nama = $_SESSION['nama_lengkap'] ?? 'Karyawan';
+$role = $_SESSION['role'] ?? 'karyawan';
 $inisial = strtoupper(substr($nama, 0, 1));
 
-/* =====================================================
-   AMBIL PESAN SESSION
-   ===================================================== */
-
-$success = $_SESSION['success'] ?? '';
-$error = $_SESSION['error'] ?? '';
-
-unset($_SESSION['success'], $_SESSION['error']);
 
 /* =====================================================
-   AMBIL KENDARAAN + BOOKING AKTIF TERBARU
-   ===================================================== */
+   AMBIL KENDARAAN + BOOKING TERBARU
+===================================================== */
 
 $stmt = $conn->prepare("
     SELECT
@@ -69,14 +61,9 @@ $stmt = $conn->prepare("
         ON a.id_area = b.id_area
 
     WHERE k.id_user = ?
-      AND k.is_dihapus = 0
 
     ORDER BY k.id_kendaraan DESC
 ");
-
-if (!$stmt) {
-    die("Query kendaraan gagal: " . $conn->error);
-}
 
 $stmt->bind_param("i", $id_user);
 $stmt->execute();
@@ -86,7 +73,6 @@ $data = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
-
 <html lang="id">
 
 <head>
@@ -96,6 +82,7 @@ $data = $stmt->get_result();
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>Kendaraan Saya - Aplikasi Parkir</title>
+
 
 <style>
 
@@ -115,6 +102,7 @@ body {
     color: #333;
 }
 
+
 /* =====================================================
    LAYOUT
 ===================================================== */
@@ -123,6 +111,7 @@ body {
     display: flex;
     min-height: 100vh;
 }
+
 
 /* =====================================================
    SIDEBAR
@@ -148,6 +137,7 @@ body {
     box-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
 }
 
+
 /* =====================================================
    SIDEBAR HEADER
 ===================================================== */
@@ -162,6 +152,7 @@ body {
     font-size: 1.15rem;
     margin-bottom: 16px;
 }
+
 
 /* =====================================================
    USER INFO
@@ -203,13 +194,16 @@ body {
     letter-spacing: 0.5px;
 }
 
+
 /* =====================================================
    SIDEBAR MENU
 ===================================================== */
 
 .sidebar-menu {
     flex: 1;
+
     padding: 14px 0;
+
     overflow-y: auto;
 }
 
@@ -234,16 +228,21 @@ body {
 
 .nav-link .icon {
     font-size: 1.1rem;
+
     width: 22px;
+
     text-align: center;
 }
 
 .nav-link:hover,
 .nav-link.active {
     background: #eaf2ff;
+
     color: #007bff;
+
     border-left-color: #007bff;
 }
+
 
 /* =====================================================
    SIDEBAR FOOTER
@@ -251,14 +250,18 @@ body {
 
 .sidebar-footer {
     padding: 12px 0;
+
     border-top: 1px solid #eee;
 }
 
 .logout-link:hover {
     background: #fdeaea;
+
     color: #dc3545;
+
     border-left-color: #dc3545;
 }
+
 
 /* =====================================================
    OVERLAY MOBILE
@@ -280,15 +283,19 @@ body {
     display: block;
 }
 
+
 /* =====================================================
    MAIN CONTENT
 ===================================================== */
 
 .main-content {
     flex: 1;
+
     min-width: 0;
+
     margin-left: 260px;
 }
+
 
 /* =====================================================
    TOPBAR
@@ -316,8 +323,10 @@ body {
 
 .topbar h2 {
     font-size: 1.1rem;
+
     color: #333;
 }
+
 
 /* =====================================================
    HAMBURGER
@@ -333,6 +342,7 @@ body {
     gap: 5px;
 
     width: 32px;
+
     height: 32px;
 
     background: none;
@@ -346,10 +356,14 @@ body {
 
 .hamburger span {
     width: 100%;
+
     height: 3px;
+
     background: #333;
+
     border-radius: 2px;
 }
+
 
 /* =====================================================
    CONTAINER
@@ -357,33 +371,12 @@ body {
 
 .container {
     width: 95%;
+
     max-width: 1500px;
+
     margin: 25px auto;
 }
 
-/* =====================================================
-   ALERT
-===================================================== */
-
-.alert {
-    padding: 13px 16px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.alert-success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.alert-error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-}
 
 /* =====================================================
    BUTTON TAMBAH
@@ -411,6 +404,7 @@ body {
     background: #218838;
 }
 
+
 /* =====================================================
    TABLE WRAPPER
 ===================================================== */
@@ -427,6 +421,7 @@ body {
     box-shadow:
         0 3px 10px rgba(0, 0, 0, 0.08);
 }
+
 
 /* =====================================================
    TABLE
@@ -467,6 +462,7 @@ table tr:hover td {
     background: #f8fbff;
 }
 
+
 /* =====================================================
    BOOKING AREA
 ===================================================== */
@@ -489,6 +485,7 @@ table tr:hover td {
     margin: 5px 0;
 }
 
+
 /* =====================================================
    BADGE
 ===================================================== */
@@ -509,18 +506,22 @@ table tr:hover td {
 
 .badge-booking {
     background: #ffc107;
+
     color: #333;
 }
 
 .badge-aktif {
     background: #28a745;
+
     color: white;
 }
 
 .badge-none {
     background: #6c757d;
+
     color: white;
 }
+
 
 /* =====================================================
    LINK BOOKING
@@ -544,6 +545,7 @@ table tr:hover td {
     text-decoration: underline;
 }
 
+
 /* =====================================================
    KUITANSI
 ===================================================== */
@@ -565,6 +567,7 @@ table tr:hover td {
 .link-kuitansi:hover {
     text-decoration: underline;
 }
+
 
 /* =====================================================
    KONFIRMASI
@@ -594,6 +597,7 @@ table tr:hover td {
     background: #e68900;
 }
 
+
 /* =====================================================
    BATAL BOOKING
 ===================================================== */
@@ -622,6 +626,33 @@ table tr:hover td {
     background: #bd2130;
 }
 
+
+/* =====================================================
+   AKSI EDIT
+===================================================== */
+
+.action-edit {
+    color: #007bff;
+
+    font-weight: bold;
+
+    text-decoration: none;
+}
+
+
+/* =====================================================
+   AKSI HAPUS
+===================================================== */
+
+.action-delete {
+    color: #dc3545;
+
+    font-weight: bold;
+
+    text-decoration: none;
+}
+
+
 /* =====================================================
    RESPONSIVE TABLE
 ===================================================== */
@@ -645,6 +676,7 @@ table tr:hover td {
     }
 }
 
+
 /* =====================================================
    MOBILE
 ===================================================== */
@@ -653,11 +685,13 @@ table tr:hover td {
 
     .sidebar {
         width: 85%;
+
         max-width: 300px;
     }
 
     .container {
         width: 94%;
+
         margin: 15px auto;
     }
 
@@ -671,11 +705,8 @@ table tr:hover td {
 
     .btn {
         width: 100%;
-        text-align: center;
-    }
 
-    .alert {
-        font-size: 13px;
+        text-align: center;
     }
 }
 
@@ -683,9 +714,12 @@ table tr:hover td {
 
 </head>
 
+
 <body>
 
+
 <div class="wrapper">
+
 
     <!-- =================================================
          SIDEBAR
@@ -693,117 +727,224 @@ table tr:hover td {
 
     <aside class="sidebar" id="sidebar">
 
+
+        <!-- SIDEBAR HEADER -->
+
         <div class="sidebar-header">
 
             <h2>🅿️ Aplikasi Parkir</h2>
 
+
             <div class="user-info">
 
+
                 <div class="avatar">
+
                     <?= htmlspecialchars($inisial); ?>
+
                 </div>
+
 
                 <div>
 
                     <p class="user-name">
+
                         <?= htmlspecialchars($nama); ?>
+
                     </p>
 
+
                     <span class="user-role">
-                        <?= strtoupper(htmlspecialchars($role)); ?>
+
+                        <?= strtoupper(
+                            htmlspecialchars($role)
+                        ); ?>
+
                     </span>
 
                 </div>
+
 
             </div>
 
         </div>
 
-        <!-- MENU -->
+
+
+        <!-- =================================================
+             MENU
+        ================================================== -->
 
         <nav class="sidebar-menu">
+
+
+            <!-- DASHBOARD -->
 
             <a
                 href="../dashboard_pengguna.php"
                 class="nav-link"
             >
-                <span class="icon">📊</span>
+
+                <span class="icon">
+                    📊
+                </span>
+
                 Dashboard
+
             </a>
+
+
+
+            <!-- RIWAYAT -->
 
             <a
                 href="riwayat.php"
                 class="nav-link"
             >
-                <span class="icon">🕒</span>
+
+                <span class="icon">
+                    🕒
+                </span>
+
                 Riwayat Parkir
+
             </a>
+
+
+
+            <!-- KENDARAAN AKTIF -->
 
             <a
                 href="kendaraan_saya.php"
                 class="nav-link active"
             >
-                <span class="icon">🚗</span>
+
+                <span class="icon">
+                    🚗
+                </span>
+
                 Kendaraan Saya
+
             </a>
+
+
+
+            <!-- PESAN TEMPAT -->
 
             <a
                 href="pesan_tempat.php"
                 class="nav-link"
             >
-                <span class="icon">🅿️</span>
+
+                <span class="icon">
+                    🅿️
+                </span>
+
                 Pesan Tempat
+
             </a>
+
+
+
+            <!-- BANTUAN -->
 
             <a
                 href="help.php"
                 class="nav-link"
             >
-                <span class="icon">❓</span>
+
+                <span class="icon">
+                    ❓
+                </span>
+
                 Bantuan
+
             </a>
+
+
+
+            <!-- PROFIL -->
 
             <a
                 href="profil.php"
                 class="nav-link"
             >
-                <span class="icon">👤</span>
+
+                <span class="icon">
+                    👤
+                </span>
+
                 Profil
+
             </a>
+
 
         </nav>
 
-        <!-- FOOTER -->
+
+
+        <!-- =================================================
+             FOOTER SIDEBAR
+        ================================================== -->
 
         <div class="sidebar-footer">
+
+
+            <!-- LANDING PAGE -->
 
             <a
                 href="../index.php"
                 class="nav-link"
             >
-                <span class="icon">🏠</span>
+
+                <span class="icon">
+                    🏠
+                </span>
+
                 Landing Page
+
             </a>
+
+
+
+            <!-- LOGOUT -->
 
             <a
                 href="../logout.php"
                 class="nav-link logout-link"
-                onclick="return confirm('Apakah Anda yakin ingin keluar?');"
+                onclick="
+                    return confirm(
+                        'Apakah Anda yakin ingin keluar?'
+                    );
+                "
             >
-                <span class="icon">🚪</span>
+
+                <span class="icon">
+                    🚪
+                </span>
+
                 Logout
+
             </a>
+
 
         </div>
 
+
     </aside>
 
-    <!-- OVERLAY -->
+
+
+    <!-- =================================================
+         OVERLAY
+    ================================================== -->
 
     <div
         class="overlay"
         id="overlay"
     ></div>
+
+
 
     <!-- =================================================
          MAIN CONTENT
@@ -811,9 +952,13 @@ table tr:hover td {
 
     <div class="main-content">
 
-        <!-- TOPBAR -->
+
+        <!-- =================================================
+             TOPBAR
+        ================================================== -->
 
         <header class="topbar">
+
 
             <button
                 class="hamburger"
@@ -821,40 +966,31 @@ table tr:hover td {
                 type="button"
                 aria-label="Buka menu"
             >
+
                 <span></span>
+
                 <span></span>
+
                 <span></span>
+
             </button>
+
 
             <h2>
                 Kendaraan Saya
             </h2>
 
+
         </header>
 
-        <!-- CONTENT -->
+
+
+        <!-- =================================================
+             CONTENT
+        ================================================== -->
 
         <div class="container">
 
-            <!-- ALERT SUCCESS -->
-
-            <?php if ($success !== ''): ?>
-
-                <div class="alert alert-success">
-                    ✅ <?= htmlspecialchars($success); ?>
-                </div>
-
-            <?php endif; ?>
-
-            <!-- ALERT ERROR -->
-
-            <?php if ($error !== ''): ?>
-
-                <div class="alert alert-error">
-                    ❌ <?= htmlspecialchars($error); ?>
-                </div>
-
-            <?php endif; ?>
 
             <!-- TAMBAH KENDARAAN -->
 
@@ -862,40 +998,68 @@ table tr:hover td {
                 href="daftarkan_kendaraan.php"
                 class="btn"
             >
+
                 + Daftarkan Kendaraan
+
             </a>
 
-            <!-- TABLE -->
+
+
+            <!-- =================================================
+                 TABLE
+            ================================================== -->
 
             <div class="table-wrapper">
 
+
                 <table>
+
 
                     <thead>
 
                         <tr>
 
-                            <th>No</th>
+                            <th>
+                                No
+                            </th>
 
-                            <th>Plat Nomor</th>
+                            <th>
+                                Plat Nomor
+                            </th>
 
-                            <th>Jenis</th>
+                            <th>
+                                Jenis
+                            </th>
 
-                            <th>Merk</th>
+                            <th>
+                                Merk
+                            </th>
 
-                            <th>Warna</th>
+                            <th>
+                                Warna
+                            </th>
 
-                            <th>Tempat Booking</th>
+                            <th>
+                                Tempat Booking
+                            </th>
+
+                            <th>
+                                Aksi
+                            </th>
 
                         </tr>
 
                     </thead>
 
+
+
                     <tbody>
+
 
                     <?php
 
                     $no = 1;
+
 
                     if ($data->num_rows === 0):
 
@@ -903,7 +1067,7 @@ table tr:hover td {
 
                         <tr>
 
-                            <td colspan="6">
+                            <td colspan="7">
 
                                 Belum ada kendaraan
                                 yang terdaftar.
@@ -912,76 +1076,88 @@ table tr:hover td {
 
                         </tr>
 
+
                     <?php
 
                     else:
 
                         while ($row = $data->fetch_assoc()):
 
-                            $idKendaraan =
-                                (int) $row['id_kendaraan'];
-
-                            $idBooking =
-                                (int) ($row['id_booking'] ?? 0);
-
-                            $statusBooking =
-                                $row['status_booking'] ?? '';
-
-                            $adaBookingAktif =
-                                $idBooking > 0 &&
-                                in_array(
-                                    $statusBooking,
-                                    ['booking', 'aktif'],
-                                    true
-                                );
-
                     ?>
 
+
                         <tr>
+
 
                             <!-- NO -->
 
                             <td>
+
                                 <?= $no++; ?>
+
                             </td>
+
+
 
                             <!-- PLAT -->
 
                             <td>
+
                                 <?= htmlspecialchars(
                                     $row['plat_nomor'] ?? '-'
                                 ); ?>
+
                             </td>
+
+
 
                             <!-- JENIS -->
 
                             <td>
+
                                 <?= htmlspecialchars(
                                     $row['jenis_kendaraan'] ?? '-'
                                 ); ?>
+
                             </td>
+
+
 
                             <!-- MERK -->
 
                             <td>
+
                                 <?= htmlspecialchars(
                                     $row['merk'] ?? '-'
                                 ); ?>
+
                             </td>
+
+
 
                             <!-- WARNA -->
 
                             <td>
+
                                 <?= htmlspecialchars(
                                     $row['warna'] ?? '-'
                                 ); ?>
+
                             </td>
+
+
 
                             <!-- BOOKING -->
 
                             <td>
 
-                            <?php if ($adaBookingAktif): ?>
+
+                            <?php if (
+                                !empty($row['id_booking'])
+                            ): ?>
+
+
+                                <!-- AREA -->
 
                                 <span class="booking-area">
 
@@ -990,6 +1166,10 @@ table tr:hover td {
                                     ); ?>
 
                                 </span>
+
+
+
+                                <!-- WAKTU -->
 
                                 <span class="booking-waktu">
 
@@ -1015,81 +1195,190 @@ table tr:hover td {
                                     ?>
 
                                     (
+
                                     <?= (int) (
-                                        $row['estimasi_jam'] ?? 0
+                                        $row['estimasi_jam']
+                                        ?? 0
                                     ); ?>
+
                                     jam)
 
                                 </span>
 
+
+
                                 <!-- STATUS -->
 
-                                <?php if ($statusBooking === 'aktif'): ?>
+                                <?php if (
+                                    ($row['status_booking'] ?? '')
+                                    === 'aktif'
+                                ): ?>
 
-                                    <span class="badge badge-aktif">
+
+                                    <span
+                                        class="badge badge-aktif"
+                                    >
+
                                         Aktif
+
                                     </span>
+
 
                                 <?php else: ?>
 
-                                    <span class="badge badge-booking">
+
+                                    <span
+                                        class="badge badge-booking"
+                                    >
+
                                         Menunggu
+
                                     </span>
 
+
                                 <?php endif; ?>
+
+
 
                                 <br>
 
-                                <!-- JIKA MASIH BOOKING -->
-
-                                <?php if ($statusBooking === 'booking'): ?>
 
 
-                                    <br>
+                                <!-- BOOKING STATUS -->
+
+                                <?php if (
+                                    ($row['status_booking'] ?? '')
+                                    === 'booking'
+                                ): ?>
+
+
+                                    <!-- KONFIRMASI -->
 
                                     <a
-                                        href="batal_booking.php?id_booking=<?= $idBooking; ?>"
-                                        class="btn-batal-booking"
-                                        onclick="return confirm('Apakah Anda yakin ingin membatalkan pesanan booking ini?');"
+                                        href="konfirmasi_sudah_ditempat.php?id_booking=<?= (int) $row['id_booking']; ?>"
+                                        class="btn-konfirmasi-tempat"
                                     >
-                                        ❌ Batal Pesanan
+
+                                        📍 Sudah di Tempat
+
                                     </a>
+
 
                                     <br>
 
+
+
+                                    <!-- BATAL -->
+
+                                    <a
+                                        href="batal_booking.php?id_booking=<?= (int) $row['id_booking']; ?>"
+                                        class="btn-batal-booking"
+                                        onclick="
+                                            return confirm(
+                                                'Apakah Anda yakin ingin membatalkan pesanan booking ini?'
+                                            );
+                                        "
+                                    >
+
+                                        ❌ Batal Pesanan
+
+                                    </a>
+
+
+                                    <br>
+
+
                                 <?php endif; ?>
+
+
 
                                 <!-- KUITANSI -->
 
                                 <a
-                                    href="struk.php?id_booking=<?= $idBooking; ?>"
+                                    href="quitansi.php?id_booking=<?= (int) $row['id_booking']; ?>"
                                     class="link-kuitansi"
                                 >
+
                                     🧾 Lihat Kuitansi
+
                                 </a>
+
 
                             <?php else: ?>
 
+
                                 <!-- BELUM BOOKING -->
 
-                                <span class="badge badge-none">
+                                <span
+                                    class="badge badge-none"
+                                >
+
                                     Belum Booking
+
                                 </span>
 
+
                                 <br>
+
+
+
+                                <!-- BOOKING TEMPAT -->
 
                                 <a
                                     href="pesan_tempat.php?id_kendaraan=<?= $idKendaraan; ?>"
                                     class="link-booking"
                                 >
+
                                     + Booking Tempat
+
                                 </a>
+
 
                             <?php endif; ?>
 
+
                             </td>
 
+
+
+                            <!-- AKSI -->
+
+                            <td>
+
+
+                                <a
+                                    href="edit_kendaraan.php?id=<?= (int) $row['id_kendaraan']; ?>"
+                                    class="action-edit"
+                                >
+
+                                    Edit
+
+                                </a>
+
+
+                                |
+
+
+                                <a
+                                    href="hapus_kendaraan.php?id=<?= (int) $row['id_kendaraan']; ?>"
+                                    class="action-delete"
+                                    onclick="
+                                        return confirm(
+                                            'Hapus kendaraan ini?'
+                                        );
+                                    "
+                                >
+
+                                    Hapus
+
+                                </a>
+
+
+                            </td>
+
+
                         </tr>
+
 
                     <?php
 
@@ -1099,18 +1388,175 @@ table tr:hover td {
 
                     ?>
 
+
                     </tbody>
+
 
                 </table>
 
+
             </div>
+
+
+
+            <!-- =================================================
+                 KEMBALI
+            ================================================== -->
+
+            <a
+                href="../dashboard_pengguna.php"
+                class="btn"
+                style="
+                    background:#007bff;
+                    margin-top:20px;
+                "
+            >
+
+                ← Kembali ke Dashboard
+
+            </a>
+
 
         </div>
 
+
     </div>
 
+
 </div>
+
+
+
+<!-- =====================================================
+     JAVASCRIPT SIDEBAR
+===================================================== -->
+
+<script>
+
+
+const sidebar =
+    document.getElementById(
+        'sidebar'
+    );
+
+
+const overlay =
+    document.getElementById(
+        'overlay'
+    );
+
+
+const hamburgerBtn =
+    document.getElementById(
+        'hamburgerBtn'
+    );
+
+
+/* =====================================================
+   TOGGLE SIDEBAR
+===================================================== */
+
+function toggleSidebar() {
+
+    sidebar.classList.toggle(
+        'active'
+    );
+
+    overlay.classList.toggle(
+        'active'
+    );
+
+}
+
+
+/* =====================================================
+   HAMBURGER
+===================================================== */
+
+hamburgerBtn.addEventListener(
+    'click',
+    toggleSidebar
+);
+
+
+/* =====================================================
+   OVERLAY
+===================================================== */
+
+overlay.addEventListener(
+    'click',
+    toggleSidebar
+);
+
+
+/* =====================================================
+   TUTUP SIDEBAR SAAT MENU DIKLIK
+===================================================== */
+
+document
+    .querySelectorAll(
+        '.sidebar .nav-link'
+    )
+    .forEach(function(link) {
+
+        link.addEventListener(
+            'click',
+            function() {
+
+                if (
+                    window.innerWidth <= 992
+                ) {
+
+                    sidebar.classList.remove(
+                        'active'
+                    );
+
+                    overlay.classList.remove(
+                        'active'
+                    );
+
+                }
+
+            }
+        );
+
+    });
+
+
+/* =====================================================
+   ESC UNTUK MENUTUP SIDEBAR
+===================================================== */
+
+document.addEventListener(
+    'keydown',
+    function(event) {
+
+        if (
+            event.key === 'Escape'
+        ) {
+
+            sidebar.classList.remove(
+                'active'
+            );
+
+            overlay.classList.remove(
+                'active'
+            );
+
+        }
+
+    }
+);
+
+</script>
+
 
 </body>
 
 </html>
+
+<?php
+
+$stmt->close();
+
+?>

@@ -3,135 +3,249 @@
 session_start();
 require_once "../db.php";
 
-// ==================== CEK LOGIN ====================
+/* =========================================================
+   CEK LOGIN
+   ========================================================= */
 
 if (!isset($_SESSION['id_user'])) {
     header("Location: ../login.php");
     exit;
 }
 
-// ==================== CEK ROLE ADMIN ====================
+/* =========================================================
+   CEK ROLE ADMIN
+   ========================================================= */
 
-if ($_SESSION['role'] !== "admin") {
+if (($_SESSION['role'] ?? '') !== "admin") {
     die("Akses ditolak!");
 }
 
 $nama = $_SESSION['nama_lengkap'] ?? 'Admin';
 $role = $_SESSION['role'] ?? 'admin';
 
+$error = "";
 
-// ==================== TAMBAH TARIF ====================
+/* =========================================================
+   FUNGSI REDIRECT
+   ========================================================= */
+
+function redirectTarif($status)
+{
+    header("Location: tarif.php?status=" . urlencode($status));
+    exit;
+}
+
+/* =========================================================
+   TAMBAH TARIF
+   ========================================================= */
 
 if (isset($_POST['tambah'])) {
 
-    $jenis_kendaraan = trim($_POST['jenis_kendaraan']);
-    $tarif_per_jam = (int) $_POST['tarif_per_jam'];
+    $jenis_kendaraan = trim($_POST['jenis_kendaraan'] ?? '');
+    $tarif_per_jam = (int) ($_POST['tarif_per_jam'] ?? 0);
 
-    $stmt = mysqli_prepare(
-        $conn,
-        "INSERT INTO tb_tarif
-        (jenis_kendaraan, tarif_per_jam)
-        VALUES (?, ?)"
-    );
+    $jenis_valid = ['motor', 'mobil', 'lainnya'];
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "si",
-        $jenis_kendaraan,
-        $tarif_per_jam
-    );
+    if (!in_array($jenis_kendaraan, $jenis_valid, true)) {
 
-    if (mysqli_stmt_execute($stmt)) {
+        $error = "Jenis kendaraan tidak valid.";
 
-        mysqli_stmt_close($stmt);
+    } elseif ($tarif_per_jam <= 0) {
 
-        header("Location: tarif.php?status=success_add");
-        exit;
+        $error = "Tarif per jam harus lebih dari Rp 0.";
 
     } else {
 
-        $error = "Gagal menambah data: " . mysqli_error($conn);
+        /* Cek apakah jenis kendaraan sudah ada */
+
+        $stmt = mysqli_prepare(
+            $conn,
+            "SELECT id_tarif
+             FROM tb_tarif
+             WHERE jenis_kendaraan = ?
+             LIMIT 1"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "s",
+            $jenis_kendaraan
+        );
+
+        mysqli_stmt_execute($stmt);
+
+        $result = mysqli_stmt_get_result($stmt);
+
+        $sudah_ada = mysqli_fetch_assoc($result);
 
         mysqli_stmt_close($stmt);
+
+        if ($sudah_ada) {
+
+            $error = "Tarif untuk jenis kendaraan tersebut sudah ada.";
+
+        } else {
+
+            $stmt = mysqli_prepare(
+                $conn,
+                "INSERT INTO tb_tarif
+                (jenis_kendaraan, tarif_per_jam)
+                VALUES (?, ?)"
+            );
+
+            mysqli_stmt_bind_param(
+                $stmt,
+                "si",
+                $jenis_kendaraan,
+                $tarif_per_jam
+            );
+
+            if (mysqli_stmt_execute($stmt)) {
+
+                mysqli_stmt_close($stmt);
+
+                redirectTarif("success_add");
+
+            } else {
+
+                $error = "Gagal menambah tarif: " . mysqli_error($conn);
+
+                mysqli_stmt_close($stmt);
+            }
+        }
     }
 }
 
-
-// ==================== UPDATE TARIF ====================
+/* =========================================================
+   UPDATE TARIF
+   ========================================================= */
 
 if (isset($_POST['edit'])) {
 
-    $id_tarif = (int) $_POST['id_tarif'];
-    $jenis_kendaraan = trim($_POST['jenis_kendaraan']);
-    $tarif_per_jam = (int) $_POST['tarif_per_jam'];
+    $id_tarif = (int) ($_POST['id_tarif'] ?? 0);
+    $jenis_kendaraan = trim($_POST['jenis_kendaraan'] ?? '');
+    $tarif_per_jam = (int) ($_POST['tarif_per_jam'] ?? 0);
 
-    $stmt = mysqli_prepare(
-        $conn,
-        "UPDATE tb_tarif
-         SET jenis_kendaraan = ?,
-             tarif_per_jam = ?
-         WHERE id_tarif = ?"
-    );
+    $jenis_valid = ['motor', 'mobil', 'lainnya'];
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "sii",
-        $jenis_kendaraan,
-        $tarif_per_jam,
-        $id_tarif
-    );
+    if ($id_tarif <= 0) {
 
-    if (mysqli_stmt_execute($stmt)) {
+        $error = "ID tarif tidak valid.";
 
-        mysqli_stmt_close($stmt);
+    } elseif (!in_array($jenis_kendaraan, $jenis_valid, true)) {
 
-        header("Location: tarif.php?status=success_update");
-        exit;
+        $error = "Jenis kendaraan tidak valid.";
+
+    } elseif ($tarif_per_jam <= 0) {
+
+        $error = "Tarif per jam harus lebih dari Rp 0.";
 
     } else {
 
-        $error = "Gagal memperbarui data: " . mysqli_error($conn);
+        /* Cek duplikasi jenis kendaraan */
+
+        $stmt = mysqli_prepare(
+            $conn,
+            "SELECT id_tarif
+             FROM tb_tarif
+             WHERE jenis_kendaraan = ?
+             AND id_tarif != ?
+             LIMIT 1"
+        );
+
+        mysqli_stmt_bind_param(
+            $stmt,
+            "si",
+            $jenis_kendaraan,
+            $id_tarif
+        );
+
+        mysqli_stmt_execute($stmt);
+
+        $result = mysqli_stmt_get_result($stmt);
+
+        $duplikat = mysqli_fetch_assoc($result);
 
         mysqli_stmt_close($stmt);
+
+        if ($duplikat) {
+
+            $error = "Jenis kendaraan tersebut sudah memiliki tarif.";
+
+        } else {
+
+            $stmt = mysqli_prepare(
+                $conn,
+                "UPDATE tb_tarif
+                 SET jenis_kendaraan = ?,
+                     tarif_per_jam = ?
+                 WHERE id_tarif = ?"
+            );
+
+            mysqli_stmt_bind_param(
+                $stmt,
+                "sii",
+                $jenis_kendaraan,
+                $tarif_per_jam,
+                $id_tarif
+            );
+
+            if (mysqli_stmt_execute($stmt)) {
+
+                mysqli_stmt_close($stmt);
+
+                redirectTarif("success_update");
+
+            } else {
+
+                $error = "Gagal memperbarui tarif: " . mysqli_error($conn);
+
+                mysqli_stmt_close($stmt);
+            }
+        }
     }
 }
 
-
-// ==================== HAPUS TARIF ====================
+/* =========================================================
+   HAPUS TARIF
+   ========================================================= */
 
 if (isset($_GET['hapus'])) {
 
     $id_tarif = (int) $_GET['hapus'];
 
-    $stmt = mysqli_prepare(
-        $conn,
-        "DELETE FROM tb_tarif
-         WHERE id_tarif = ?"
-    );
+    if ($id_tarif > 0) {
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "i",
-        $id_tarif
-    );
+        $stmt = mysqli_prepare(
+            $conn,
+            "DELETE FROM tb_tarif
+             WHERE id_tarif = ?"
+        );
 
-    if (mysqli_stmt_execute($stmt)) {
+        mysqli_stmt_bind_param(
+            $stmt,
+            "i",
+            $id_tarif
+        );
 
-        mysqli_stmt_close($stmt);
+        if (mysqli_stmt_execute($stmt)) {
 
-        header("Location: tarif.php?status=success_delete");
-        exit;
+            mysqli_stmt_close($stmt);
 
-    } else {
+            redirectTarif("success_delete");
 
-        $error = "Gagal menghapus data: " . mysqli_error($conn);
+        } else {
 
-        mysqli_stmt_close($stmt);
+            $error = "Gagal menghapus tarif: " . mysqli_error($conn);
+
+            mysqli_stmt_close($stmt);
+        }
     }
 }
 
-
-// ==================== DATA EDIT ====================
+/* =========================================================
+   DATA EDIT
+   ========================================================= */
 
 $edit_data = null;
 
@@ -139,30 +253,35 @@ if (isset($_GET['edit'])) {
 
     $id_edit = (int) $_GET['edit'];
 
-    $stmt = mysqli_prepare(
-        $conn,
-        "SELECT *
-         FROM tb_tarif
-         WHERE id_tarif = ?"
-    );
+    if ($id_edit > 0) {
 
-    mysqli_stmt_bind_param(
-        $stmt,
-        "i",
-        $id_edit
-    );
+        $stmt = mysqli_prepare(
+            $conn,
+            "SELECT *
+             FROM tb_tarif
+             WHERE id_tarif = ?
+             LIMIT 1"
+        );
 
-    mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_param(
+            $stmt,
+            "i",
+            $id_edit
+        );
 
-    $result_edit = mysqli_stmt_get_result($stmt);
+        mysqli_stmt_execute($stmt);
 
-    $edit_data = mysqli_fetch_assoc($result_edit);
+        $result_edit = mysqli_stmt_get_result($stmt);
 
-    mysqli_stmt_close($stmt);
+        $edit_data = mysqli_fetch_assoc($result_edit);
+
+        mysqli_stmt_close($stmt);
+    }
 }
 
-
-// ==================== AMBIL DATA TARIF ====================
+/* =========================================================
+   AMBIL SEMUA DATA TARIF
+   ========================================================= */
 
 $data_tarif = mysqli_query(
     $conn,
@@ -171,8 +290,53 @@ $data_tarif = mysqli_query(
      ORDER BY id_tarif DESC"
 );
 
+if (!$data_tarif) {
+    die("Query tarif gagal: " . mysqli_error($conn));
+}
 
-// ==================== DATA GRAFIK ====================
+/* =========================================================
+   STATISTIK
+   ========================================================= */
+
+$total_tarif = 0;
+$total_nilai = 0;
+
+$tarif_motor = null;
+$tarif_mobil = null;
+$tarif_lainnya = null;
+
+$stat_query = mysqli_query(
+    $conn,
+    "SELECT jenis_kendaraan, tarif_per_jam
+     FROM tb_tarif"
+);
+
+while ($stat = mysqli_fetch_assoc($stat_query)) {
+
+    $total_tarif++;
+
+    $total_nilai += (int) $stat['tarif_per_jam'];
+
+    if ($stat['jenis_kendaraan'] === 'motor') {
+        $tarif_motor = (int) $stat['tarif_per_jam'];
+    }
+
+    if ($stat['jenis_kendaraan'] === 'mobil') {
+        $tarif_mobil = (int) $stat['tarif_per_jam'];
+    }
+
+    if ($stat['jenis_kendaraan'] === 'lainnya') {
+        $tarif_lainnya = (int) $stat['tarif_per_jam'];
+    }
+}
+
+$rata_rata = $total_tarif > 0
+    ? round($total_nilai / $total_tarif)
+    : 0;
+
+/* =========================================================
+   DATA GRAFIK
+   ========================================================= */
 
 $label = [];
 $data = [];
@@ -180,19 +344,29 @@ $data = [];
 $grafik = mysqli_query(
     $conn,
     "SELECT jenis_kendaraan, tarif_per_jam
-     FROM tb_tarif"
+     FROM tb_tarif
+     ORDER BY FIELD(
+         jenis_kendaraan,
+         'motor',
+         'mobil',
+         'lainnya'
+     )"
 );
 
 while ($g = mysqli_fetch_assoc($grafik)) {
 
-    $label[] = ucfirst($g['jenis_kendaraan']);
+    $nama_jenis = ucfirst(
+        htmlspecialchars($g['jenis_kendaraan'])
+    );
 
+    $label[] = $nama_jenis;
     $data[] = (int) $g['tarif_per_jam'];
 }
 
 ?>
 
 <!DOCTYPE html>
+
 <html lang="id">
 
 <head>
@@ -200,157 +374,162 @@ while ($g = mysqli_fetch_assoc($grafik)) {
 <meta charset="UTF-8">
 
 <meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+   content="width=device-width, initial-scale=1.0">
 
-<title>Kelola Tarif - E-Parkir Admin</title>
+<title>Kelola Tarif | E-Parkir</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
-/* ================= RESET ================= */
+/* =========================================================
+   RESET
+   ========================================================= */
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-
-    font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
-    background: #f4f6f9;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background: #f1f5f9;
+    color: #1e293b;
     min-height: 100vh;
 }
 
-
-/* ================= SIDEBAR ================= */
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
 
 .sidebar {
-
     width: 250px;
-
-    background: #1e293b;
-
-    color: #fff;
-
-    display: flex;
-    flex-direction: column;
+    background: #0f172a;
+    color: white;
 
     position: fixed;
 
     top: 0;
-    bottom: 0;
     left: 0;
+    bottom: 0;
+
+    display: flex;
+    flex-direction: column;
 
     z-index: 1000;
+
+    box-shadow:
+        4px 0 15px rgba(0,0,0,.08);
 }
 
+.brand {
+    padding: 22px 18px;
 
-/* BRAND */
-
-.sidebar .brand {
-
-    padding: 20px;
-
-    font-size: 20px;
-
-    font-weight: bold;
-
-    background: #0f172a;
-
-    border-bottom: 1px solid #334155;
+    background: #020617;
 
     text-align: center;
+
+    font-size: 20px;
+    font-weight: 800;
+
+    border-bottom:
+        1px solid #1e293b;
 }
 
+.user-info {
+    padding: 18px 20px;
 
-/* USER INFO */
-
-.sidebar .user-info {
-
-    padding: 15px 20px;
-
-    background: #1e293b;
-
-    border-bottom: 1px solid #334155;
-
-    font-size: 13px;
+    border-bottom:
+        1px solid #1e293b;
 
     color: #94a3b8;
+
+    font-size: 12px;
 }
 
-.sidebar .user-info b {
-
-    color: #fff;
-
+.user-info b {
     display: block;
 
-    font-size: 15px;
+    color: white;
 
-    margin-top: 3px;
+    font-size: 14px;
+
+    margin:
+        4px 0 10px;
 }
 
-
-/* NAVIGATION */
-
-.sidebar .nav-links {
-
+.nav-links {
     list-style: none;
 
-    padding: 15px 0;
+    padding: 15px 10px;
 
-    flex-grow: 1;
+    flex: 1;
 
     overflow-y: auto;
 }
 
-.sidebar .nav-links li a {
+.nav-links li {
+    margin-bottom: 4px;
+}
 
+.nav-links a {
     display: flex;
 
     align-items: center;
 
     gap: 12px;
 
-    padding: 12px 20px;
+    padding: 12px 14px;
 
     color: #cbd5e1;
 
     text-decoration: none;
+
+    border-radius: 8px;
 
     font-size: 14px;
 
     transition: .2s;
 }
 
-.sidebar .nav-links li a:hover,
-.sidebar .nav-links li a.active {
+.nav-links a:hover,
+.nav-links a.active {
+    background: #2563eb;
+    color: white;
 
-    background: #007bff;
-
-    color: #fff;
+    transform:
+        translateX(2px);
 }
 
-
-/* LOGOUT */
-
-.sidebar .logout-container {
-
-    padding: 15px 20px;
-
-    border-top: 1px solid #334155;
+.nav-icon {
+    width: 25px;
+    text-align: center;
 }
 
-.sidebar .logout-btn {
+/* =========================================================
+   LOGOUT
+   ========================================================= */
 
+.logout-container {
+    padding: 15px;
+
+    border-top:
+        1px solid #1e293b;
+}
+
+.logout-btn {
     display: block;
 
     width: 100%;
 
-    padding: 10px;
+    padding: 11px;
 
-    background: #dc3545;
+    background: #dc2626;
 
     color: white;
 
@@ -358,253 +537,497 @@ body {
 
     text-align: center;
 
-    border-radius: 5px;
+    border-radius: 8px;
 
     font-weight: bold;
 
     transition: .2s;
 }
 
-.sidebar .logout-btn:hover {
-
-    background: #bd2130;
+.logout-btn:hover {
+    background: #b91c1c;
 }
 
-
-/* ================= MAIN ================= */
+/* =========================================================
+   MAIN
+   ========================================================= */
 
 .main-content {
-
     margin-left: 250px;
 
     min-height: 100vh;
-
-    display: flex;
-
-    flex-direction: column;
 }
 
-
-/* ================= HEADER ================= */
+/* =========================================================
+   HEADER
+   ========================================================= */
 
 header {
-
-    background: #007bff;
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #1d4ed8
+        );
 
     color: white;
 
-    padding: 20px 30px;
+    padding: 28px 35px;
 
-    box-shadow: 0 2px 5px rgba(0,0,0,.1);
+    box-shadow:
+        0 4px 12px rgba(0,0,0,.08);
 }
 
-header h2 {
-
-    margin-bottom: 5px;
-}
-
-
-/* ================= CONTAINER ================= */
-
-.container {
-
-    padding: 30px;
-
-    width: 100%;
-
-    max-width: 1200px;
-
+.header-content {
+    max-width: 1250px;
     margin: auto;
 }
 
+header h1 {
+    font-size: 26px;
+    margin-bottom: 7px;
+}
 
-/* ================= CARD ================= */
+header p {
+    color: #dbeafe;
+    font-size: 14px;
+}
 
-.card {
+/* =========================================================
+   CONTAINER
+   ========================================================= */
 
-    background: #fff;
+.container {
+    width: 100%;
 
-    padding: 20px;
+    max-width: 1250px;
+
+    margin: auto;
+
+    padding: 30px;
+}
+
+/* =========================================================
+   ALERT
+   ========================================================= */
+
+.alert {
+    padding: 14px 17px;
 
     border-radius: 10px;
 
-    box-shadow: 0 5px 15px rgba(0,0,0,.08);
+    margin-bottom: 22px;
+
+    font-weight: 600;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+}
+
+.alert-success {
+    background: #dcfce7;
+    color: #166534;
+
+    border:
+        1px solid #bbf7d0;
+}
+
+.alert-danger {
+    background: #fee2e2;
+    color: #991b1b;
+
+    border:
+        1px solid #fecaca;
+}
+
+/* =========================================================
+   STATISTICS
+   ========================================================= */
+
+.stats-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 18px;
 
     margin-bottom: 25px;
 }
 
-.card h2,
-.card h3 {
-
-    margin-bottom: 20px;
-
-    color: #2563eb;
-}
-
-
-/* ================= ALERT ================= */
-
-.alert {
-
-    padding: 12px 15px;
-
-    margin-bottom: 20px;
-
-    border-radius: 6px;
-
-    font-weight: bold;
-}
-
-.alert-success {
-
-    background: #d4edda;
-
-    color: #155724;
-
-    border: 1px solid #c3e6cb;
-}
-
-.alert-danger {
-
-    background: #f8d7da;
-
-    color: #721c24;
-
-    border: 1px solid #f5c6cb;
-}
-
-
-/* ================= FORM ================= */
-
-form {
-
-    background: #f8f9fa;
+.stat-card {
+    background: white;
 
     padding: 20px;
 
-    border-radius: 8px;
+    border-radius: 14px;
 
-    border: 1px solid #e9ecef;
+    box-shadow:
+        0 5px 18px rgba(15,23,42,.07);
+
+    border:
+        1px solid #e2e8f0;
 }
 
-.form-group {
+.stat-top {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
 
     margin-bottom: 15px;
 }
 
-label {
+.stat-icon {
+    width: 45px;
+    height: 45px;
 
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 12px;
+
+    background: #eff6ff;
+
+    font-size: 22px;
+}
+
+.stat-title {
+    color: #64748b;
+
+    font-size: 13px;
+
+    font-weight: 600;
+}
+
+.stat-value {
+    font-size: 22px;
+
+    font-weight: 800;
+
+    color: #0f172a;
+}
+
+/* =========================================================
+   CARD
+   ========================================================= */
+
+.card {
+    background: white;
+
+    padding: 24px;
+
+    border-radius: 14px;
+
+    margin-bottom: 25px;
+
+    box-shadow:
+        0 5px 18px rgba(15,23,42,.07);
+
+    border:
+        1px solid #e2e8f0;
+}
+
+.card-title {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-bottom: 20px;
+
+    gap: 15px;
+}
+
+.card-title h2 {
+    font-size: 19px;
+
+    color: #0f172a;
+}
+
+.card-title p {
+    color: #64748b;
+
+    font-size: 13px;
+
+    margin-top: 5px;
+}
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.form-grid {
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr auto;
+
+    gap: 16px;
+
+    align-items: end;
+}
+
+.form-group label {
     display: block;
 
-    margin-bottom: 7px;
+    margin-bottom: 8px;
 
-    font-weight: bold;
+    font-size: 13px;
 
-    color: #333;
+    font-weight: 700;
+
+    color: #334155;
 }
 
-input[type="number"],
-select {
-
+.form-control {
     width: 100%;
 
-    padding: 11px;
+    padding: 12px 13px;
 
-    border: 1px solid #ccc;
+    border:
+        1px solid #cbd5e1;
 
-    border-radius: 5px;
+    border-radius: 9px;
+
+    background: white;
+
+    font-size: 14px;
 
     outline: none;
-
-    font-size: 14px;
-}
-
-input[type="number"]:focus,
-select:focus {
-
-    border-color: #2563eb;
-
-    box-shadow: 0 0 0 2px rgba(37,99,235,.1);
-}
-
-
-/* ================= BUTTON ================= */
-
-.btn {
-
-    padding: 9px 15px;
-
-    border: none;
-
-    border-radius: 5px;
-
-    cursor: pointer;
-
-    color: white;
-
-    text-decoration: none;
-
-    display: inline-block;
-
-    font-size: 14px;
 
     transition: .2s;
 }
 
-.btn-primary {
+.form-control:focus {
+    border-color: #2563eb;
 
-    background: #007bff;
+    box-shadow:
+        0 0 0 3px
+        rgba(37,99,235,.1);
+}
+
+/* =========================================================
+   BUTTON
+   ========================================================= */
+
+.btn {
+    border: none;
+
+    padding: 11px 16px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    text-decoration: none;
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    gap: 7px;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    transition: .2s;
+}
+
+.btn:hover {
+    transform:
+        translateY(-1px);
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: white;
 }
 
 .btn-primary:hover {
-
-    background: #0056b3;
+    background: #1d4ed8;
 }
 
 .btn-warning {
-
     background: #f59e0b;
-
     color: white;
 }
 
 .btn-warning:hover {
-
     background: #d97706;
 }
 
 .btn-danger {
-
-    background: #dc3545;
+    background: #dc2626;
+    color: white;
 }
 
 .btn-danger:hover {
-
-    background: #bd2130;
+    background: #b91c1c;
 }
 
 .btn-secondary {
-
     background: #64748b;
+    color: white;
 }
 
 .btn-secondary:hover {
-
     background: #475569;
 }
 
+/* =========================================================
+   TARIF CARDS
+   ========================================================= */
 
-/* ================= TABLE ================= */
+.tarif-cards {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, 1fr);
+
+    gap: 18px;
+
+    margin-bottom: 25px;
+}
+
+.tarif-card {
+    border:
+        1px solid #e2e8f0;
+
+    border-radius: 12px;
+
+    padding: 20px;
+
+    background:
+        linear-gradient(
+            145deg,
+            #ffffff,
+            #f8fafc
+        );
+}
+
+.tarif-card-top {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 15px;
+}
+
+.vehicle-icon {
+    font-size: 28px;
+}
+
+.status-badge {
+    padding: 5px 9px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+
+    font-weight: 700;
+
+    background: #dcfce7;
+
+    color: #166534;
+}
+
+.tarif-card h3 {
+    font-size: 15px;
+
+    color: #475569;
+
+    margin-bottom: 7px;
+}
+
+.tarif-price {
+    font-size: 23px;
+
+    font-weight: 800;
+
+    color: #2563eb;
+}
+
+.not-available {
+    color: #94a3b8;
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   TABLE TOOLBAR
+   ========================================================= */
+
+.table-toolbar {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 15px;
+
+    margin-bottom: 18px;
+}
+
+.search-box {
+    position: relative;
+
+    max-width: 320px;
+
+    width: 100%;
+}
+
+.search-box input {
+    width: 100%;
+
+    padding: 11px 13px 11px 40px;
+
+    border:
+        1px solid #cbd5e1;
+
+    border-radius: 9px;
+
+    outline: none;
+
+    font-size: 13px;
+}
+
+.search-box span {
+    position: absolute;
+
+    left: 13px;
+
+    top: 10px;
+
+    font-size: 16px;
+
+    color: #64748b;
+}
+
+/* =========================================================
+   TABLE
+   ========================================================= */
 
 .table-wrapper {
-
     width: 100%;
 
     overflow-x: auto;
 }
 
 table {
-
     width: 100%;
 
     border-collapse: collapse;
@@ -612,96 +1035,199 @@ table {
     min-width: 650px;
 }
 
-th {
+thead th {
+    background: #f8fafc;
 
-    background: #2563eb;
+    color: #475569;
 
-    color: white;
-
-    padding: 12px;
+    padding: 14px;
 
     text-align: left;
+
+    font-size: 12px;
+
+    text-transform: uppercase;
+
+    letter-spacing: .4px;
+
+    border-bottom:
+        1px solid #e2e8f0;
 }
 
-td {
+tbody td {
+    padding: 15px 14px;
 
-    padding: 12px;
+    border-bottom:
+        1px solid #e2e8f0;
 
-    border-bottom: 1px solid #ddd;
+    font-size: 14px;
 }
 
-tr:hover td {
-
+tbody tr:hover {
     background: #f8fafc;
 }
 
+.vehicle-badge {
+    display: inline-flex;
 
-/* ================= GRAFIK ================= */
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 6px 10px;
+
+    border-radius: 7px;
+
+    background: #eff6ff;
+
+    color: #1d4ed8;
+
+    font-weight: 700;
+
+    font-size: 12px;
+}
+
+.price {
+    font-weight: 800;
+
+    color: #0f172a;
+}
+
+.action-buttons {
+    display: flex;
+
+    gap: 7px;
+
+    flex-wrap: wrap;
+}
+
+.action-buttons .btn {
+    padding: 8px 11px;
+
+    font-size: 12px;
+}
+
+/* =========================================================
+   EMPTY
+   ========================================================= */
+
+.empty-state {
+    text-align: center;
+
+    padding: 40px 20px;
+
+    color: #64748b;
+}
+
+.empty-icon {
+    font-size: 42px;
+
+    margin-bottom: 10px;
+}
+
+/* =========================================================
+   CHART
+   ========================================================= */
 
 .chart-wrapper {
+    position: relative;
 
     width: 100%;
 
-    max-width: 1000px;
-
-    margin: auto;
+    height: 330px;
 }
 
+/* =========================================================
+   FOOTER
+   ========================================================= */
 
-/* ================= BACK ================= */
-
-.btn-back-wrapper {
-
-    margin-top: 10px;
+.back-wrapper {
+    margin-top: 5px;
 
     padding-top: 20px;
 
-    border-top: 1px solid #e9ecef;
+    border-top:
+        1px solid #e2e8f0;
 }
 
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
 
-/* ================= RESPONSIVE ================= */
+@media (max-width: 1000px) {
+
+    .stats-grid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .tarif-cards {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .form-grid {
+        grid-template-columns:
+            1fr 1fr;
+    }
+
+}
 
 @media (max-width: 768px) {
 
     .sidebar {
+        position: relative;
 
         width: 100%;
-
-        position: relative;
 
         height: auto;
     }
 
-    .sidebar .nav-links {
-
-        max-height: 350px;
-    }
-
     .main-content {
-
         margin-left: 0;
     }
 
-    header {
+    .nav-links {
+        max-height: 350px;
+    }
 
-        padding: 18px 20px;
+    header {
+        padding: 22px 18px;
+    }
+
+    header h1 {
+        font-size: 21px;
     }
 
     .container {
+        padding: 18px 14px;
+    }
 
-        padding: 20px 15px;
+    .stats-grid,
+    .tarif-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
     }
 
     .card {
-
-        padding: 15px;
+        padding: 18px;
     }
 
-    .card h2,
-    .card h3 {
+    .table-toolbar {
+        align-items: stretch;
 
-        font-size: 19px;
+        flex-direction: column;
+    }
+
+    .search-box {
+        max-width: none;
+    }
+
+    .chart-wrapper {
+        height: 280px;
     }
 
 }
@@ -712,313 +1238,550 @@ tr:hover td {
 
 <body>
 
-
 <!-- =====================================================
      SIDEBAR
 ===================================================== -->
 
 <aside class="sidebar">
 
-    <div class="brand">
+<div class="brand">
+    🅿️ E-Parkir
+</div>
 
-        🅿️ E-Parkir Admin
+<div class="user-info">
 
-    </div>
+    Role
 
+    <b>
+        <?= strtoupper(
+            htmlspecialchars($role)
+        ); ?>
+    </b>
 
-    <div class="user-info">
+    Pengguna
 
-        Role:
+    <b>
+        <?= htmlspecialchars($nama); ?>
+    </b>
 
-        <b>
-            <?= strtoupper(htmlspecialchars($role)); ?>
-        </b>
+</div>
 
-        User:
+<ul class="nav-links">
 
-        <b>
-            <?= htmlspecialchars($nama); ?>
-        </b>
+    <li>
+        <a href="../dashboard.php">
 
-    </div>
+            <span class="nav-icon">🏠</span>
 
-
-    <ul class="nav-links">
-
-        <li>
-
-            <a href="../dashboard.php">
-
-                <span>🏠</span>
-
-                Dashboard
-
-            </a>
-
-        </li>
-
-
-        <li>
-
-            <a href="user.php">
-
-                <span>👤</span>
-
-                Kelola User
-
-            </a>
-
-        </li>
-
-
-        <li>
-
-            <a href="tarif.php" class="active">
-
-                <span>💰</span>
-
-                Kelola Tarif
-
-            </a>
-
-        </li>
-
-
-        <li>
-
-            <a href="transaksi.php">
-
-                <span>🎫</span>
-
-                Transaksi Parkir
-
-            </a>
-
-        </li>
-
-
-        <li>
-
-            <a href="area.php">
-
-                <span>🅿️</span>
-
-                Area Parkir
-
-            </a>
-
-        </li>
-
-
-        <li>
-
-            <a href="kendaraan.php">
-
-                <span>🚗</span>
-
-                Kelola Kendaraan
-
-            </a>
-
-        </li>
-
-
-        <li>
-
-            <a href="log.php">
-
-                <span>📋</span>
-
-                Log Aktivitas
-
-            </a>
-
-        </li>
-
-    </ul>
-
-
-    <div class="logout-container">
-
-        <a href="../logout.php" class="logout-btn">
-
-            Logout
+            Dashboard
 
         </a>
+    </li>
 
-    </div>
+    <li>
+        <a href="user.php">
+
+            <span class="nav-icon">👤</span>
+
+            Kelola User
+
+        </a>
+    </li>
+
+    <li>
+        <a
+            href="tarif.php"
+            class="active"
+        >
+
+            <span class="nav-icon">💰</span>
+
+            Kelola Tarif
+
+        </a>
+    </li>
+
+
+    <li>
+        <a href="area.php">
+
+            <span class="nav-icon">🅿️</span>
+
+            Area Parkir
+
+        </a>
+    </li>
+
+    <li>
+        <a href="kendaraan.php">
+
+            <span class="nav-icon">🚗</span>
+
+            Kelola Kendaraan
+
+        </a>
+    </li>
+
+    <li>
+        <a href="log.php">
+
+            <span class="nav-icon">📋</span>
+
+            Log Aktivitas
+
+        </a>
+    </li>
+
+</ul>
+
+<div class="logout-container">
+
+    <a
+        href="../logout.php"
+        class="logout-btn"
+    >
+        🚪 Logout
+    </a>
+
+</div>
 
 </aside>
 
-
-
 <!-- =====================================================
-     MAIN CONTENT
+     MAIN
 ===================================================== -->
 
-<div class="main-content">
+<main class="main-content">
 
 
-    <!-- HEADER -->
+<header>
 
-    <header>
+    <div class="header-content">
 
-        <h2>💰 Kelola Tarif Parkir</h2>
+        <h1>
+            💰 Kelola Tarif Parkir
+        </h1>
 
         <p>
-            Kelola tarif parkir berdasarkan jenis kendaraan
+            Atur tarif parkir berdasarkan jenis kendaraan.
         </p>
 
-    </header>
+    </div>
+
+</header>
 
 
+<div class="container">
 
-    <div class="container">
+    <!-- =================================================
+         ALERT
+    ================================================= -->
 
+    <?php if (isset($_GET['status'])): ?>
 
-        <!-- ================= ALERT ================= -->
+        <?php if ($_GET['status'] === 'success_add'): ?>
 
-        <?php if (isset($_GET['status'])): ?>
+            <div class="alert alert-success">
+                ✅ Tarif berhasil ditambahkan.
+            </div>
 
-            <?php if ($_GET['status'] === 'success_add'): ?>
+        <?php elseif ($_GET['status'] === 'success_update'): ?>
 
-                <div class="alert alert-success">
+            <div class="alert alert-success">
+                ✅ Tarif berhasil diperbarui.
+            </div>
 
-                    ✅ Tarif berhasil ditambahkan!
+        <?php elseif ($_GET['status'] === 'success_delete'): ?>
 
-                </div>
-
-            <?php elseif ($_GET['status'] === 'success_update'): ?>
-
-                <div class="alert alert-success">
-
-                    ✅ Tarif berhasil diperbarui!
-
-                </div>
-
-            <?php elseif ($_GET['status'] === 'success_delete'): ?>
-
-                <div class="alert alert-success">
-
-                    ✅ Tarif berhasil dihapus!
-
-                </div>
-
-            <?php endif; ?>
-
-        <?php endif; ?>
-
-
-        <?php if (isset($error)): ?>
-
-            <div class="alert alert-danger">
-
-                ❌ <?= htmlspecialchars($error); ?>
-
+            <div class="alert alert-success">
+                🗑️ Tarif berhasil dihapus.
             </div>
 
         <?php endif; ?>
 
+    <?php endif; ?>
 
 
-        <!-- ================= FORM TARIF ================= -->
+    <?php if ($error): ?>
 
-        <div class="card">
+        <div class="alert alert-danger">
+            ❌ <?= htmlspecialchars($error); ?>
+        </div>
 
-            <h2>
-
-                <?= $edit_data
-                    ? '✏️ Edit Tarif'
-                    : '➕ Tambah Tarif Baru';
-                ?>
-
-            </h2>
+    <?php endif; ?>
 
 
-            <form
-                action="tarif.php"
-                method="POST"
-            >
+    <!-- =================================================
+         STATISTIK
+    ================================================= -->
+
+    <div class="stats-grid">
+
+        <div class="stat-card">
+
+            <div class="stat-top">
+
+                <div class="stat-title">
+                    Total Tarif
+                </div>
+
+                <div class="stat-icon">
+                    💰
+                </div>
+
+            </div>
+
+            <div class="stat-value">
+                <?= $total_tarif; ?>
+            </div>
+
+        </div>
 
 
-                <?php if ($edit_data): ?>
+        <div class="stat-card">
 
-                    <input
-                        type="hidden"
-                        name="id_tarif"
-                        value="<?= $edit_data['id_tarif']; ?>"
-                    >
+            <div class="stat-top">
+
+                <div class="stat-title">
+                    Tarif Motor
+                </div>
+
+                <div class="stat-icon">
+                    🏍️
+                </div>
+
+            </div>
+
+            <div class="stat-value">
+
+                <?php if ($tarif_motor !== null): ?>
+
+                    Rp <?= number_format(
+                        $tarif_motor,
+                        0,
+                        ',',
+                        '.'
+                    ); ?>
+
+                <?php else: ?>
+
+                    -
 
                 <?php endif; ?>
 
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-top">
+
+                <div class="stat-title">
+                    Tarif Mobil
+                </div>
+
+                <div class="stat-icon">
+                    🚗
+                </div>
+
+            </div>
+
+            <div class="stat-value">
+
+                <?php if ($tarif_mobil !== null): ?>
+
+                    Rp <?= number_format(
+                        $tarif_mobil,
+                        0,
+                        ',',
+                        '.'
+                    ); ?>
+
+                <?php else: ?>
+
+                    -
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+
+        <div class="stat-card">
+
+            <div class="stat-top">
+
+                <div class="stat-title">
+                    Rata-rata Tarif
+                </div>
+
+                <div class="stat-icon">
+                    📊
+                </div>
+
+            </div>
+
+            <div class="stat-value">
+
+                Rp <?= number_format(
+                    $rata_rata,
+                    0,
+                    ',',
+                    '.'
+                ); ?>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         TARIF PER KENDARAAN
+    ================================================= -->
+
+    <div class="tarif-cards">
+
+        <div class="tarif-card">
+
+            <div class="tarif-card-top">
+
+                <span class="vehicle-icon">
+                    🏍️
+                </span>
+
+                <span class="status-badge">
+                    <?= $tarif_motor !== null
+                        ? 'Aktif'
+                        : 'Belum diatur'; ?>
+                </span>
+
+            </div>
+
+            <h3>
+                Kendaraan Motor
+            </h3>
+
+            <?php if ($tarif_motor !== null): ?>
+
+                <div class="tarif-price">
+                    Rp <?= number_format(
+                        $tarif_motor,
+                        0,
+                        ',',
+                        '.'
+                    ); ?>
+                    <small>/ jam</small>
+                </div>
+
+            <?php else: ?>
+
+                <div class="not-available">
+                    Tarif belum tersedia
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+
+        <div class="tarif-card">
+
+            <div class="tarif-card-top">
+
+                <span class="vehicle-icon">
+                    🚗
+                </span>
+
+                <span class="status-badge">
+                    <?= $tarif_mobil !== null
+                        ? 'Aktif'
+                        : 'Belum diatur'; ?>
+                </span>
+
+            </div>
+
+            <h3>
+                Kendaraan Mobil
+            </h3>
+
+            <?php if ($tarif_mobil !== null): ?>
+
+                <div class="tarif-price">
+                    Rp <?= number_format(
+                        $tarif_mobil,
+                        0,
+                        ',',
+                        '.'
+                    ); ?>
+                    <small>/ jam</small>
+                </div>
+
+            <?php else: ?>
+
+                <div class="not-available">
+                    Tarif belum tersedia
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+
+        <div class="tarif-card">
+
+            <div class="tarif-card-top">
+
+                <span class="vehicle-icon">
+                    🚐
+                </span>
+
+                <span class="status-badge">
+                    <?= $tarif_lainnya !== null
+                        ? 'Aktif'
+                        : 'Belum diatur'; ?>
+                </span>
+
+            </div>
+
+            <h3>
+                Kendaraan Lainnya
+            </h3>
+
+            <?php if ($tarif_lainnya !== null): ?>
+
+                <div class="tarif-price">
+                    Rp <?= number_format(
+                        $tarif_lainnya,
+                        0,
+                        ',',
+                        '.'
+                    ); ?>
+                    <small>/ jam</small>
+                </div>
+
+            <?php else: ?>
+
+                <div class="not-available">
+                    Tarif belum tersedia
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         FORM
+    ================================================= -->
+
+    <div class="card">
+
+        <div class="card-title">
+
+            <div>
+
+                <h2>
+
+                    <?= $edit_data
+                        ? '✏️ Edit Tarif'
+                        : '➕ Tambah Tarif'; ?>
+
+                </h2>
+
+                <p>
+                    <?= $edit_data
+                        ? 'Perbarui data tarif kendaraan.'
+                        : 'Tambahkan tarif parkir baru.'; ?>
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <form
+            action="tarif.php"
+            method="POST"
+        >
+
+            <?php if ($edit_data): ?>
+
+                <input
+                    type="hidden"
+                    name="id_tarif"
+                    value="<?= (int)
+                        $edit_data['id_tarif']; ?>"
+                >
+
+            <?php endif; ?>
+
+
+            <div class="form-grid">
 
                 <div class="form-group">
 
                     <label for="jenis_kendaraan">
-
                         Jenis Kendaraan
-
                     </label>
 
-
                     <select
+                        class="form-control"
                         name="jenis_kendaraan"
                         id="jenis_kendaraan"
                         required
                     >
 
                         <option value="">
-
-                            -- Pilih Jenis Kendaraan --
-
+                            -- Pilih Kendaraan --
                         </option>
-
 
                         <option
                             value="motor"
                             <?= (
                                 $edit_data &&
-                                $edit_data['jenis_kendaraan'] === 'motor'
+                                $edit_data[
+                                    'jenis_kendaraan'
+                                ] === 'motor'
                             )
                             ? 'selected'
-                            : '';
-                            ?>
+                            : ''; ?>
                         >
-
                             🏍️ Motor
-
                         </option>
-
 
                         <option
                             value="mobil"
                             <?= (
                                 $edit_data &&
-                                $edit_data['jenis_kendaraan'] === 'mobil'
+                                $edit_data[
+                                    'jenis_kendaraan'
+                                ] === 'mobil'
                             )
                             ? 'selected'
-                            : '';
-                            ?>
+                            : ''; ?>
                         >
-
                             🚗 Mobil
-
                         </option>
-
 
                         <option
                             value="lainnya"
                             <?= (
                                 $edit_data &&
-                                $edit_data['jenis_kendaraan'] === 'lainnya'
+                                $edit_data[
+                                    'jenis_kendaraan'
+                                ] === 'lainnya'
                             )
                             ? 'selected'
-                            : '';
-                            ?>
+                            : ''; ?>
                         >
-
                             🚐 Lainnya
-
                         </option>
 
                     </select>
@@ -1026,28 +1789,27 @@ tr:hover td {
                 </div>
 
 
-
                 <div class="form-group">
 
                     <label for="tarif_per_jam">
-
-                        Tarif per Jam (Rp)
-
+                        Tarif Per Jam
                     </label>
 
-
                     <input
+                        class="form-control"
                         type="number"
                         name="tarif_per_jam"
                         id="tarif_per_jam"
 
-                        value="<?=
-                            $edit_data
-                            ? $edit_data['tarif_per_jam']
-                            : '';
-                        ?>"
+                        value="<?= $edit_data
+                            ? (int)
+                              $edit_data[
+                                  'tarif_per_jam'
+                              ]
+                            : ''; ?>"
 
-                        min="0"
+                        min="1"
+                        step="100"
 
                         required
 
@@ -1055,7 +1817,6 @@ tr:hover td {
                     >
 
                 </div>
-
 
 
                 <div>
@@ -1067,19 +1828,14 @@ tr:hover td {
                             name="edit"
                             class="btn btn-warning"
                         >
-
-                            💾 Simpan Perubahan
-
+                            💾 Simpan
                         </button>
-
 
                         <a
                             href="tarif.php"
                             class="btn btn-secondary"
                         >
-
                             Batal
-
                         </a>
 
                     <?php else: ?>
@@ -1089,291 +1845,445 @@ tr:hover td {
                             name="tambah"
                             class="btn btn-primary"
                         >
-
                             ➕ Tambah Tarif
-
                         </button>
 
                     <?php endif; ?>
 
                 </div>
 
-            </form>
+            </div>
+
+        </form>
+
+    </div>
+
+
+    <!-- =================================================
+         TABEL
+    ================================================= -->
+
+    <div class="card">
+
+        <div class="card-title">
+
+            <div>
+
+                <h2>
+                    📋 Daftar Tarif
+                </h2>
+
+                <p>
+                    Semua tarif parkir yang tersimpan di MariaDB.
+                </p>
+
+            </div>
 
         </div>
 
 
+        <div class="table-toolbar">
 
-        <!-- ================= TABEL TARIF ================= -->
+            <div class="search-box">
 
-        <div class="card">
+                <span>🔎</span>
 
-            <h2>
+                <input
+                    type="text"
+                    id="searchTarif"
+                    placeholder="Cari jenis kendaraan..."
+                    onkeyup="filterTarif()"
+                >
 
-                📋 Daftar Tarif
+            </div>
 
-            </h2>
-
-
-            <div class="table-wrapper">
-
-                <table>
-
-                    <thead>
-
-                        <tr>
-
-                            <th width="8%">
-                                No
-                            </th>
-
-                            <th>
-                                Jenis Kendaraan
-                            </th>
-
-                            <th>
-                                Tarif per Jam
-                            </th>
-
-                            <th width="20%">
-                                Aksi
-                            </th>
-
-                        </tr>
-
-                    </thead>
+        </div>
 
 
-                    <tbody>
+        <div class="table-wrapper">
 
-                        <?php
+            <table id="tarifTable">
 
-                        $no = 1;
+                <thead>
 
-                        if (mysqli_num_rows($data_tarif) > 0):
+                    <tr>
 
-                            while (
-                                $row =
-                                mysqli_fetch_assoc($data_tarif)
-                            ):
+                        <th width="8%">
+                            No
+                        </th>
 
-                        ?>
+                        <th>
+                            Jenis Kendaraan
+                        </th>
 
-                        <tr>
+                        <th>
+                            Tarif / Jam
+                        </th>
 
-                            <td>
+                        <th width="25%">
+                            Aksi
+                        </th>
 
-                                <?= $no++; ?>
+                    </tr>
 
-                            </td>
+                </thead>
 
 
-                            <td>
+                <tbody>
+
+                <?php
+
+                $no = 1;
+
+                if (mysqli_num_rows($data_tarif) > 0):
+
+                    while (
+                        $row =
+                        mysqli_fetch_assoc(
+                            $data_tarif
+                        )
+                    ):
+
+                        $jenis =
+                            strtolower(
+                                $row[
+                                    'jenis_kendaraan'
+                                ]
+                            );
+
+                        $icon = '🚐';
+
+                        if ($jenis === 'motor') {
+                            $icon = '🏍️';
+                        } elseif ($jenis === 'mobil') {
+                            $icon = '🚗';
+                        }
+
+                ?>
+
+                    <tr>
+
+                        <td>
+                            <?= $no++; ?>
+                        </td>
+
+                        <td>
+
+                            <span
+                                class="vehicle-badge"
+                            >
+
+                                <?= $icon; ?>
 
                                 <?= ucfirst(
                                     htmlspecialchars(
-                                        $row['jenis_kendaraan']
+                                        $row[
+                                            'jenis_kendaraan'
+                                        ]
                                     )
                                 ); ?>
 
-                            </td>
+                            </span>
 
+                        </td>
 
-                            <td>
+                        <td>
 
-                                <strong>
+                            <span class="price">
 
-                                    Rp
-                                    <?= number_format(
-                                        $row['tarif_per_jam'],
-                                        0,
-                                        ',',
-                                        '.'
-                                    ); ?>
+                                Rp
+                                <?= number_format(
+                                    $row[
+                                        'tarif_per_jam'
+                                    ],
+                                    0,
+                                    ',',
+                                    '.'
+                                ); ?>
 
-                                </strong>
+                            </span>
 
-                            </td>
+                            <span
+                                style="
+                                color:#64748b;
+                                font-size:12px;
+                                "
+                            >
+                                / jam
+                            </span>
 
+                        </td>
 
-                            <td>
+                        <td>
+
+                            <div class="action-buttons">
 
                                 <a
-                                    href="tarif.php?edit=<?= $row['id_tarif']; ?>"
+                                    href="tarif.php?edit=<?= (int)
+                                        $row[
+                                            'id_tarif'
+                                        ]; ?>"
                                     class="btn btn-warning"
                                 >
-
                                     ✏️ Edit
-
                                 </a>
-
 
                                 <a
-                                    href="tarif.php?hapus=<?= $row['id_tarif']; ?>"
+                                    href="tarif.php?hapus=<?= (int)
+                                        $row[
+                                            'id_tarif'
+                                        ]; ?>"
                                     class="btn btn-danger"
-
                                     onclick="
                                         return confirm(
-                                            'Yakin ingin menghapus tarif ini?'
-                                        )
+                                            'Yakin ingin menghapus tarif <?= htmlspecialchars(
+                                                ucfirst(
+                                                    $row[
+                                                        'jenis_kendaraan'
+                                                    ]
+                                                ),
+                                                ENT_QUOTES
+                                            ); ?>?'
+                                        );
                                     "
                                 >
-
                                     🗑️ Hapus
-
                                 </a>
 
-                            </td>
+                            </div>
 
-                        </tr>
+                        </td>
 
-                        <?php
+                    </tr>
 
-                            endwhile;
+                <?php
 
-                        else:
+                    endwhile;
 
-                        ?>
+                else:
 
-                        <tr>
+                ?>
 
-                            <td
-                                colspan="4"
-                                style="text-align:center;"
-                            >
+                    <tr>
 
-                                Belum ada data tarif.
+                        <td
+                            colspan="4"
+                            class="empty-state"
+                        >
 
-                            </td>
+                            <div class="empty-icon">
+                                💰
+                            </div>
 
-                        </tr>
+                            <strong>
+                                Belum ada data tarif
+                            </strong>
 
-                        <?php endif; ?>
+                            <br>
 
-                    </tbody>
+                            Tambahkan tarif parkir melalui form di atas.
 
-                </table>
+                        </td>
+
+                    </tr>
+
+                <?php endif; ?>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- =================================================
+         GRAFIK
+    ================================================= -->
+
+    <div class="card">
+
+        <div class="card-title">
+
+            <div>
+
+                <h2>
+                    📊 Grafik Tarif Parkir
+                </h2>
+
+                <p>
+                    Perbandingan tarif per jam berdasarkan jenis kendaraan.
+                </p>
 
             </div>
 
         </div>
 
 
+        <div class="chart-wrapper">
 
-        <!-- ================= GRAFIK ================= -->
-
-        <div class="card">
-
-            <h2>
-
-                📊 Grafik Tarif Parkir
-
-            </h2>
-
-
-            <div class="chart-wrapper">
-
-                <canvas
-                    id="grafikTarif"
-                    height="100"
-                ></canvas>
-
-            </div>
+            <canvas
+                id="grafikTarif"
+            ></canvas>
 
         </div>
 
+    </div>
 
 
-        <!-- ================= BACK ================= -->
+    <!-- =================================================
+         BACK
+    ================================================= -->
 
-        <div class="btn-back-wrapper">
+    <div class="back-wrapper">
 
-            <a
-                href="../dashboard.php"
-                class="btn btn-secondary"
-            >
-
-                ← Kembali ke Dashboard
-
-            </a>
-
-        </div>
-
+        <a
+            href="../dashboard.php"
+            class="btn btn-secondary"
+        >
+            ← Kembali ke Dashboard
+        </a>
 
     </div>
 
 </div>
 
-
+</main>
 
 <script>
 
-const ctx =
-    document.getElementById('grafikTarif');
+/* =========================================================
+   SEARCH TARIF
+   ========================================================= */
+
+function filterTarif() {
+
+    const input =
+        document
+        .getElementById('searchTarif')
+        .value
+        .toLowerCase();
+
+    const rows =
+        document
+        .querySelectorAll(
+            '#tarifTable tbody tr'
+        );
+
+    rows.forEach(function(row) {
+
+        const text =
+            row.textContent.toLowerCase();
+
+        row.style.display =
+            text.includes(input)
+                ? ''
+                : 'none';
+
+    });
+
+}
 
 
-new Chart(ctx, {
+/* =========================================================
+   GRAFIK
+   ========================================================= */
 
-    type: 'line',
+const canvas =
+    document.getElementById(
+        'grafikTarif'
+    );
 
-    data: {
+const labels =
+    <?= json_encode(
+        $label,
+        JSON_UNESCAPED_UNICODE
+    ); ?>;
 
-        labels:
-            <?= json_encode($label); ?>,
+const data =
+    <?= json_encode(
+        $data
+    ); ?>;
 
-        datasets: [{
+if (canvas && labels.length > 0) {
 
-            label: 'Tarif Per Jam',
+    new Chart(canvas, {
 
-            data:
-                <?= json_encode($data); ?>,
+        type: 'bar',
 
-            borderColor: '#007bff',
+        data: {
 
-            backgroundColor:
-                'rgba(0, 123, 255, 0.2)',
+            labels: labels,
 
-            borderWidth: 3,
+            datasets: [{
 
-            fill: true,
+                label:
+                    'Tarif Parkir / Jam',
 
-            tension: 0.4,
+                data: data,
 
-            pointRadius: 5,
+                borderWidth: 1,
 
-            pointBackgroundColor:
-                '#007bff'
+                borderRadius: 8
 
-        }]
-
-    },
-
-    options: {
-
-        responsive: true,
-
-        plugins: {
-
-            legend: {
-
-                display: true
-
-            }
+            }]
 
         },
 
-        scales: {
+        options: {
 
-            y: {
+            responsive: true,
 
-                beginAtZero: true,
+            maintainAspectRatio: false,
 
-                ticks: {
+            plugins: {
 
-                    callback: function(value) {
+                legend: {
 
-                        return 'Rp ' +
-                            value.toLocaleString('id-ID');
+                    display: false
+
+                },
+
+                tooltip: {
+
+                    callbacks: {
+
+                        label: function(context) {
+
+                            return 'Rp ' +
+                                context.raw
+                                .toLocaleString(
+                                    'id-ID'
+                                ) +
+                                ' / jam';
+
+                        }
+
+                    }
+
+                }
+
+            },
+
+            scales: {
+
+                y: {
+
+                    beginAtZero: true,
+
+                    ticks: {
+
+                        callback:
+                            function(value) {
+
+                                return 'Rp ' +
+                                    Number(value)
+                                    .toLocaleString(
+                                        'id-ID'
+                                    );
+
+                            }
 
                     }
 
@@ -1383,9 +2293,9 @@ new Chart(ctx, {
 
         }
 
-    }
+    });
 
-});
+}
 
 </script>
 

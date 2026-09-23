@@ -16,9 +16,9 @@ $nama    = $_SESSION['nama_lengkap'] ?? 'User';
 $role    = $_SESSION['role'] ?? '';
 
 /* =========================================================
-   HANYA ADMIN
+   HANYA PETUGAS
    ========================================================= */
-if ($role !== 'admin') {
+if ($role !== 'petugas') {
     header("Location: ../dashboard.php");
     exit;
 }
@@ -48,7 +48,7 @@ if (!$query) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Log Aktivitas - E-Parkir Admin</title>
+<title>Log Aktivitas - E-Parkir Petugas</title>
 
 <style>
 
@@ -591,7 +591,7 @@ table tr:hover {
 <aside class="sidebar" id="sidebar">
 
     <div class="brand">
-        🅿️ E-Parkir Admin
+        🅿️ E-Parkir Petugas
     </div>
 
 
@@ -622,20 +622,15 @@ table tr:hover {
         </li>
 
 
-        <li>
-            <a href="user.php">
-                <span>👤</span>
-                Kelola User
-            </a>
-        </li>
 
 
         <li>
-            <a href="tarif.php">
-                <span>💰</span>
-                Kelola Tarif
+            <a href="transaksi.php">
+                <span>🎫</span>
+                Transaksi Parkir
             </a>
         </li>
+
 
         <li>
             <a href="area.php">

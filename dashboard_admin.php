@@ -1,5 +1,8 @@
+
 <?php
+
 session_start();
+
 require_once "db.php";
 
 // Cek apakah sudah login
@@ -16,16 +19,19 @@ if ($role !== 'admin') {
     header("Location: dashboard.php");
     exit;
 }
+
 ?>
 
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Admin - Parkir</title>
 
 <style>
+
 * {
     margin: 0;
     padding: 0;
@@ -40,6 +46,7 @@ body {
 }
 
 /* Sidebar Navigation */
+
 .sidebar {
     width: 250px;
     background: #1e293b;
@@ -124,6 +131,7 @@ body {
 }
 
 /* Main Content Area */
+
 .main-content {
     margin-left: 250px;
     flex: 1;
@@ -147,7 +155,7 @@ header {
     background: white;
     padding: 20px;
     border-radius: 10px;
-    box-shadow: 0px 0px 10px rgba(0,0,0,.08);
+    box-shadow: 0 0 10px rgba(0,0,0,.08);
     margin-bottom: 25px;
 }
 
@@ -164,7 +172,7 @@ header {
     text-align: center;
     text-decoration: none;
     color: #333;
-    box-shadow: 0px 3px 8px rgba(0,0,0,.08);
+    box-shadow: 0 3px 8px rgba(0,0,0,.08);
     transition: .3s;
     border: 1px solid #e2e8f0;
 }
@@ -180,60 +188,132 @@ header {
     border-color: #007bff;
 }
 
+/* Footer */
+
+.footer {
+    text-align: center;
+    padding: 18px 20px;
+    margin-top: 30px;
+    color: #64748b;
+    font-size: 13px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.footer strong {
+    color: #334155;
+}
+
 /* Responsive Handling */
+
 @media (max-width: 768px) {
+
     body {
         flex-direction: column;
     }
+
     .sidebar {
         width: 100%;
         position: relative;
     }
+
     .main-content {
         margin-left: 0;
     }
+
 }
+
 </style>
 
 </head>
+
 <body>
 
 <!-- Sidebar Navigasi -->
+
 <aside class="sidebar">
+
     <div class="brand">
         🅿️ E-Parkir Admin
     </div>
+
     <div class="user-info">
         Role: <b><?php echo strtoupper($role); ?></b>
         User: <b><?php echo htmlspecialchars($nama); ?></b>
     </div>
+
     <ul class="nav-links">
-        <li><a href="index.php" class="active"><span>🏠</span> Landing Page</a></li>
-        <li><a href="admin/user.php"><span>👤</span> Kelola User</a></li>
-        <li><a href="admin/tarif.php"><span>💰</span> Kelola Tarif</a></li>
-        <li><a href="admin/transaksi.php"><span>🎫</span> Transaksi Parkir</a></li>
-        <li><a href="admin/area.php"><span>🅿️</span> Area Parkir</a></li>
-        <li><a href="admin/kendaraan.php"><span>🚗</span> Kelola Kendaraan</a></li>
-        <li><a href="admin/log.php"><span>📋</span> Log Aktivitas</a></li>
+
+        <li>
+            <a href="index.php" class="active">
+                <span>🏠</span> Landing Page
+            </a>
+        </li>
+
+        <li>
+            <a href="admin/user.php">
+                <span>👤</span> Kelola User
+            </a>
+        </li>
+
+        <li>
+            <a href="admin/tarif.php">
+                <span>💰</span> Kelola Tarif
+            </a>
+        </li>
+
+        <li>
+            <a href="admin/area.php">
+                <span>🅿️</span> Area Parkir
+            </a>
+        </li>
+
+        <li>
+            <a href="admin/kendaraan.php">
+                <span>🚗</span> Kelola Kendaraan
+            </a>
+        </li>
+
+        <li>
+            <a href="admin/log.php">
+                <span>📋</span> Log Aktivitas
+            </a>
+        </li>
+
     </ul>
+
     <div class="logout-container">
         <a href="logout.php" class="logout-btn">Logout</a>
     </div>
+
 </aside>
 
 <!-- Konten Utama -->
+
 <div class="main-content">
 
     <header>
+
         <h2>Aplikasi Parkir</h2>
-        <p>Selamat datang, <b><?php echo htmlspecialchars($nama); ?></b> (<?php echo strtoupper($role); ?>)</p>
+
+        <p>
+            Selamat datang,
+            <b><?php echo htmlspecialchars($nama); ?></b>
+            (<?php echo strtoupper($role); ?>)
+        </p>
+
     </header>
 
     <div class="container">
 
         <div class="card">
+
             <h3>Dashboard Admin</h3>
-            <p>Silakan pilih menu navigasi di sebelah kiri atau melalui ringkasan di bawah ini.</p>
+
+            <p>
+                Silakan pilih menu navigasi di sebelah kiri
+                atau melalui ringkasan di bawah ini.
+            </p>
+
         </div>
 
         <div class="menu">
@@ -246,11 +326,6 @@ header {
             <a href="admin/tarif.php" class="box">
                 <h3>💰 Tarif</h3>
                 Kelola Tarif
-            </a>
-
-            <a href="admin/transaksi.php" class="box">
-                <h3>🎫 Transaksi</h3>
-                Parkir Masuk / Keluar
             </a>
 
             <a href="admin/area.php" class="box">
@@ -269,6 +344,13 @@ header {
             </a>
 
         </div>
+
+        <footer class="footer">
+            © 2026 E-Parkir — Panel Admin<br>
+            Dikembangkan oleh
+            <strong>Muhammad Zaidan Rafa — SMK Negeri 1 Sanden</strong><br>
+            <span>All Rights Reserved.</span>
+        </footer>
 
     </div>
 
