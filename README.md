@@ -204,7 +204,6 @@ parking/
 ├── dashboard_petugas.php
 ├── cek_area.php
 ├── index.php
-├── index.html
 ├── login.php
 ├── login_karyawan.php
 ├── login_pengguna.php
