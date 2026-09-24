@@ -106,6 +106,7 @@ Petugas fokus pada **operasional harian** parkir, seperti:
 * Kendaraan
 * Log aktivitas
 * Transaksi (check-in langsung, validasi booking, edit durasi, pembayaran cash/QRIS)
+* Scan QR Code untuk proses kendaraan Masuk
 * Scan QR Code untuk proses kendaraan keluar (`scan_qr.php` → `proses_keluar.php`)
 * Struk transaksi
 
